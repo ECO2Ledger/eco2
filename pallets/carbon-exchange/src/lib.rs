@@ -51,7 +51,7 @@ decl_event!(
 	{
 		NewOrder(Hash, AccountId),
 		NewDeal(Hash, AccountId, u64, u64),
-		OrderCanceled(Hash),
+		OrderCanceled(Hash, AccountId),
 	}
 );
 
@@ -105,8 +105,8 @@ decl_module! {
 			ensure!(money_balance >= money_amount, Error::<T>::InsuffientMoney);
 
 			 let maker = order.maker.clone();
-			<pallet_standard_assets::Module<T>>::make_transfer(&order.money_id, &taker, &maker, amount);
-			<pallet_carbon_assets::Module<T>>::make_transfer(&order.asset_id, &maker, &taker, amount);
+			<pallet_standard_assets::Module<T>>::make_transfer(&order.money_id, &taker, &maker, amount)?;
+			<pallet_carbon_assets::Module<T>>::make_transfer(&order.asset_id, &maker, &taker, amount)?;
 
 			order.left_amount -= amount;
 
@@ -125,11 +125,11 @@ decl_module! {
 		pub fn cancel_order(origin, order_id: T::Hash) -> dispatch::DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			let mut order = Self::get_order(order_id).ok_or(Error::<T>::InvalidIndex)?;
+			let order = Self::get_order(order_id).ok_or(Error::<T>::InvalidIndex)?;
 			ensure!(order.maker == sender, Error::<T>::PermissionDenied);
 			<Orders<T>>::remove(order_id);
 
-			Self::deposit_event(RawEvent::OrderCanceled(order_id));
+			Self::deposit_event(RawEvent::OrderCanceled(order_id, sender));
 			Ok(())
 		}
 	}

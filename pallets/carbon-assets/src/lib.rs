@@ -71,7 +71,7 @@ decl_event!(
 	{
 		ProjectSubmited(Hash, AccountId, Vec<u8>),
 		ProjectApproved(Hash),
-		AssetSubmited(Hash, AccountId, Vec<u8>),
+		AssetSubmited(Hash, Hash, AccountId, Vec<u8>),
 		AssetApproved(Hash),
 		IssueSubmited(Hash, Hash, AccountId, u64),
 		IssueApproved(Hash),
@@ -142,7 +142,7 @@ decl_module! {
 			let asset_id = T::Hashing::hash_of(&asset);
 			<Assets<T>>::insert(asset_id, asset);
 
-			Self::deposit_event(RawEvent::AssetSubmited(asset_id, sender, symbol));
+			Self::deposit_event(RawEvent::AssetSubmited(project_id, asset_id, sender, symbol));
 
 			Ok(())
 		}
@@ -261,7 +261,7 @@ decl_module! {
 		pub fn transfer(origin, asset_id: T::Hash, to: T::AccountId, amount: u64) -> dispatch::DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			Self::make_transfer(&asset_id, &sender, &to, amount);
+			Self::make_transfer(&asset_id, &sender, &to, amount)?;
 
 			Self::deposit_event(RawEvent::Transferred(asset_id, sender, to, amount));
 
