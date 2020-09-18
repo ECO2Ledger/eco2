@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@polkadot/api": "^1.33.1"
+    "@polkadot/api": "^1.33.1",
+    "nedb": "^1.8.0"
   }
 }
