@@ -51,6 +51,7 @@ decl_event!(
 	{
 		NewOrder(Hash, AccountId),
 		NewDeal(Hash, AccountId, u64, u64),
+		OrderCanceled(Hash),
 	}
 );
 
@@ -60,6 +61,7 @@ decl_error! {
 		StorageOverflow,
 		InsuffientMoney,
 		AmountHigh,
+		PermissionDenied,
 	}
 }
 
@@ -107,10 +109,27 @@ decl_module! {
 			<pallet_carbon_assets::Module<T>>::make_transfer(&order.asset_id, &maker, &taker, amount);
 
 			order.left_amount -= amount;
-			<Orders<T>>::insert(order_id, order);
+
+			if order.left_amount > 0 {
+				<Orders<T>>::insert(order_id, order);
+			} else {
+				<Orders<T>>::remove(order_id);
+			}
 
 			Self::deposit_event(RawEvent::NewDeal(order_id, taker, price, amount));
 
+			Ok(())
+		}
+
+		#[weight = 10_000 + T::DbWeight::get().writes(1)]
+		pub fn cancel_order(origin, order_id: T::Hash) -> dispatch::DispatchResult {
+			let sender = ensure_signed(origin)?;
+
+			let mut order = Self::get_order(order_id).ok_or(Error::<T>::InvalidIndex)?;
+			ensure!(order.maker == sender, Error::<T>::PermissionDenied);
+			<Orders<T>>::remove(order_id);
+
+			Self::deposit_event(RawEvent::OrderCanceled(order_id));
 			Ok(())
 		}
 	}
