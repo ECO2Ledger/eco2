@@ -107,6 +107,11 @@ async function takeOrder(api: ApiPromise, sender: KeyringPair, orderId: string, 
     await submitTx('takeOrder', tx, sender)
 }
 
+async function cancelOrder(api: ApiPromise, sender: KeyringPair, orderId: string) {
+    const tx = api.tx['carbonExchange']['cancelOrder'](orderId)
+    await submitTx('cancelOrder', tx, sender)
+}
+
 async function main() {
     await cryptoWaitReady()
 
@@ -193,12 +198,13 @@ async function main() {
     // await queryOrder(api, orderId)
 
     // await takeOrder(api, jack, orderId, '1000')
+    // await cancelOrder(api, alice, orderId)
 
-    await queryStandardBalance(api, moneyId, alice.address)
-    await queryStandardBalance(api, moneyId, jack.address)
-    await queryCarbonBalance(api, assetId, alice.address)
-    await queryCarbonBalance(api, assetId, jack.address)
-    await queryOrder(api, orderId)
+    // await queryStandardBalance(api, moneyId, alice.address)
+    // await queryStandardBalance(api, moneyId, jack.address)
+    // await queryCarbonBalance(api, assetId, alice.address)
+    // await queryCarbonBalance(api, assetId, jack.address)
+    // await queryOrder(api, orderId)
 }
 
 main().then().catch(console.error)
