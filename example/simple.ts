@@ -5,6 +5,10 @@ import { cryptoWaitReady } from '@polkadot/util-crypto'
 
 const typeRegistry = new TypeRegistry()
 
+function toUtf8(data: Uint8Array) {
+    return Buffer.from(data).toString('utf8')
+}
+
 async function submitTx(label: string, tx, sender) {
     const unsub = await tx.signAndSend(sender, (result) => {
         console.log(`==========================${label}==========================`)
@@ -37,7 +41,13 @@ async function submitProject(api: ApiPromise, sender: KeyringPair, name: string,
 
 async function queryProject(api: ApiPromise, projectId: string) {
     const project = await api.query['carbonAssets']['projects'](projectId)
-    console.log('queryProject:', project.toJSON())
+    const additionals = await api.query['carbonAssets']['projectAdditionals'](projectId)
+    console.log('queryProject:', project.toJSON(), JSON.parse(toUtf8(additionals.toU8a(true))))
+}
+
+async function approveProject(api: ApiPromise, sender: KeyringPair, projectId: string) {
+    const tx = api.tx['carbonAssets']['approveProject'](projectId)
+    await submitTx('approveProject', tx, sender)
 }
 
 async function submitAsset(api: ApiPromise, sender: KeyringPair, projectId: string, symbol: string, initialSupply: string, additional: {}) {
@@ -52,7 +62,8 @@ async function approveAsset(api: ApiPromise, sender: KeyringPair, assetId: strin
 
 async function queryAsset(api: ApiPromise, assetId: string) {
     const asset = await api.query['carbonAssets']['assets'](assetId)
-    console.log('queryAssett:', asset.toJSON())
+    const additionals = await api.query['carbonAssets']['assetAdditionals'](assetId)
+    console.log('queryAssett:', asset.toJSON(), JSON.parse(toUtf8(additionals.toU8a(true))))
 }
 
 async function submitIssue(api: ApiPromise, sender: KeyringPair, assetId: string, amount: string, additional: {}) {
@@ -120,15 +131,14 @@ async function main() {
         Address: 'AccountId',
         LookupSource: 'AccountId',
         MoneyIdOf: 'u32',
-        Project: {
+        CarbonProject: {
             name: 'Vec<u8>',
             max_supply: 'u64',
             total_supply: 'u64',
             status: 'u8',
             owner: 'AccountId',
-            additional: 'Vec<u8>',
         },
-        Asset: {
+        CarbonAsset: {
             project_id: 'Hash',
             symbol: 'Vec<u8>',
             initial_supply: 'u64',
@@ -171,10 +181,11 @@ async function main() {
 
     // await submitProject(api, alice, 'testproject3', '10000000', { registerDate: '2020-09-20', assetYears: 10 })
 
-    const projectId = '0xbdbaf156861c0b47c2783cfe1efb0001323afbbcb9e573b699a650fab99ab5d8'
-    // await queryProject(api, projectId)
+    const projectId = '0x3951995a0b1dbb41a96a1ab0243ec807c2bff01280e5ff566cf6e4c5e63abf35'
+    await queryProject(api, projectId)
+    // await approveProject(api, alice, projectId)
 
-    // await submitAsset(api, alice, '0xbdbaf156861c0b47c2783cfe1efb0001323afbbcb9e573b699a650fab99ab5d8', 'ABC.2019', '2000000', { remark: 'register asset remark' })
+    // await submitAsset(api, alice, '0xbdbaf156861c0b47c2783cfe1efb0001323afbbcb9e573b699a650fab99ab5d8', 'ABC.2020', '2000000', { remark: 'register asset remark' })
     const assetId = '0x1cb8b1b80d1d1b34da106279bdfe5e9236561033aee5bcf7257af04c3d55f2a3'
     // await queryAsset(api, assetId)
 
@@ -182,10 +193,10 @@ async function main() {
     // await queryCarbonBalance(api, assetId, alice.address)
 
     // await submitIssue(api, alice, assetId, '100000', { remark: 'issue remark 1' })
-    const issueId = ''
+    const issueId = '0x001d1beb3dd41b13e2777c0be29be78481f5ba76dd0f5dae4bd6e1d708366e20'
     // await approveIssue(api, alice, issueId)
 
-    // await submitBurn(api, alice, assetId, '200000', {remark: 'burn remark 1'})
+    // await submitBurn(api, alice, assetId, '200000', { remark: 'burn remark 1' })
     const burnId = ''
     // await approveBurn(api, alice, burnId)
 
