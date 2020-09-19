@@ -3536,6 +3536,7 @@ version = "2.0.0-rc6"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-timestamp",
  "parity-scale-codec",
  "sp-core",
  "sp-io",
@@ -3551,6 +3552,7 @@ dependencies = [
  "frame-system",
  "pallet-carbon-assets",
  "pallet-standard-assets",
+ "pallet-timestamp",
  "parity-scale-codec",
  "sp-core",
  "sp-io",
@@ -3635,6 +3637,7 @@ version = "2.0.0-rc6"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-timestamp",
  "parity-scale-codec",
  "sp-core",
  "sp-io",
