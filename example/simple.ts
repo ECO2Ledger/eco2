@@ -34,7 +34,7 @@ async function transfer(api: ApiPromise, sender: KeyringPair, to: string, amount
     await submitTx('transfer', api.tx.balances.transfer(to, amount), sender)
 }
 
-async function submitProject(api: ApiPromise, sender: KeyringPair, name: string, maxSupply: string, additional: {}) {
+async function submitProject(api: ApiPromise, sender: KeyringPair, symbol: string, maxSupply: string, additional: {}) {
     const tx = api.tx['carbonAssets']['submitProject'](name, maxSupply, JSON.stringify(additional))
     await submitTx('submitProject', tx, sender)
 }
@@ -50,8 +50,8 @@ async function approveProject(api: ApiPromise, sender: KeyringPair, projectId: s
     await submitTx('approveProject', tx, sender)
 }
 
-async function submitAsset(api: ApiPromise, sender: KeyringPair, projectId: string, symbol: string, initialSupply: string, additional: {}) {
-    const tx = api.tx['carbonAssets']['submitAsset'](projectId, symbol, initialSupply, JSON.stringify(additional))
+async function submitAsset(api: ApiPromise, sender: KeyringPair, projectId: string, vintage: string, initialSupply: string, additional: {}) {
+    const tx = api.tx['carbonAssets']['submitAsset'](projectId, vintage, initialSupply, JSON.stringify(additional))
     await submitTx('submitAsset', tx, sender)
 }
 
@@ -199,13 +199,13 @@ async function main() {
     // await queryBalance(api, alice.address)
     // await transfer(api, alice, jack.address, '200000000000')
 
-    // await submitProject(api, alice, 'testproject3', '10000000', { registerDate: '2020-09-20', assetYears: 10 })
+    // await submitProject(api, alice, 'ABC', '10000000', { registerDate: '2020-09-20', lifetime: '2020-2025' })
 
     const projectId = '0x3951995a0b1dbb41a96a1ab0243ec807c2bff01280e5ff566cf6e4c5e63abf35'
     // await queryProject(api, projectId)
     // await approveProject(api, alice, projectId)
 
-    // await submitAsset(api, alice, projectId, 'ABC.2020', '2000000', { remark: 'register asset remark' })
+    // await submitAsset(api, alice, projectId, '2020', '2000000', { remark: 'register asset remark' })
     const assetId = '0x6fb74b98a6f55afceb18927bdc276ff29c4c6e95637764621d5536eb7803ea2e'
     // await queryAsset(api, assetId)
 

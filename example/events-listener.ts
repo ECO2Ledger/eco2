@@ -45,8 +45,8 @@ const eco2EventHandlers = {
     'carbonAssets:ProjectSubmited': (_, data) => {
         const projectId = data[0].toString()
         const owner = data[1].toString()
-        const name = Buffer.from(data[2]).toString('utf8')
-        const doc = { projectId, owner, name, approved: 0 }
+        const symbol = Buffer.from(data[2]).toString('utf8')
+        const doc = { projectId, owner, symbol, approved: 0 }
         console.log('ProjectSubmited', doc)
         db.carbonProjects.insert(doc, dbErrorHandler)
     },
@@ -61,8 +61,7 @@ const eco2EventHandlers = {
         const projectId = data[0].toString()
         const assetId = data[1].toString()
         const owner = data[2].toString()
-        const symbol = Buffer.from(data[3]).toString('utf8')
-        const doc = { projectId, assetId, owner, symbol, approved: 0 }
+        const doc = { projectId, assetId, owner, approved: 0 }
         console.log('AssetSubmited', doc)
         db.carbonAssets.insert(doc, dbErrorHandler)
     },
@@ -321,10 +320,14 @@ function startServer() {
 function initDB() {
     db.carbonProjects.ensureIndex({ fieldName: 'owner' }, dbErrorHandler)
     db.carbonProjects.ensureIndex({ fieldName: 'approved' }, dbErrorHandler)
+
+    db.carbonAssets.ensureIndex({ fieldName: 'projectId' }, dbErrorHandler)
     db.carbonAssets.ensureIndex({ fieldName: 'owner' }, dbErrorHandler)
     db.carbonAssets.ensureIndex({ fieldName: 'approved' }, dbErrorHandler)
+
     db.carbonIssues.ensureIndex({ fieldName: 'owner' }, dbErrorHandler)
     db.carbonIssues.ensureIndex({ fieldName: 'approved' }, dbErrorHandler)
+
     db.carbonBurns.ensureIndex({ fieldName: 'owner' }, dbErrorHandler)
     db.carbonBurns.ensureIndex({ fieldName: 'approved' }, dbErrorHandler)
 
