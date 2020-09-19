@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "@polkadot/api": "^1.33.1",
+    "fastify": "^3.4.1",
     "nedb": "^1.8.0"
   }
 }

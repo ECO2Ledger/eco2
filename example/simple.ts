@@ -92,13 +92,28 @@ async function queryCarbonBalance(api: ApiPromise, assetId: string, address: str
     console.log(`queryCarbonBalance: (${assetId}, ${address}) => ${balance.toHuman()}`)
 }
 
-async function issueStandardAsset(api: ApiPromise, sender: KeyringPair, amount: string) {
-    const tx = api.tx['standardAssets']['issue'](amount)
+async function transferCarbonAsset(api: ApiPromise, sender: KeyringPair, assetId: string, to: string, amount: string) {
+    const tx = api.tx['carbonAssets']['transfer'](assetId, to, amount)
+    await submitTx('transferCarbonAsset', tx, sender)
+}
+
+async function issueStandardAsset(api: ApiPromise, sender: KeyringPair, symbol: string, name: string, decimals: number, maxSupply: string, firstSupply: string) {
+    const tx = api.tx['standardAssets']['issue'](symbol, name, decimals, maxSupply, firstSupply)
     await submitTx('issueStandardAsset', tx, sender)
 }
 
-async function queryStandardBalance(api: ApiPromise, moneyId: number, address: string) {
-    const key = createTypeUnsafe(typeRegistry, '(u32, AccountId)', [[moneyId, address]])
+async function transferStandardAsset(api: ApiPromise, sender: KeyringPair, moneyId: string, to: string, amount: string) {
+    const tx = api.tx['standardAssets']['transfer'](moneyId, to, amount)
+    await submitTx('transferStandardAsset', tx, sender)
+}
+
+async function queryStandardAsset(api: ApiPromise, moneyId: string) {
+    const asset = await api.query['standardAssets']['assetInfos'](moneyId)
+    console.log('queryStandardBalance:', asset.toJSON())
+}
+
+async function queryStandardBalance(api: ApiPromise, moneyId: string, address: string) {
+    const key = createTypeUnsafe(typeRegistry, '(Hash, AccountId)', [[moneyId, address]])
     const balance = await api.query['standardAssets']['balances'](key.toHex())
     console.log(`queryStandardBalance: (${moneyId}, ${address}) => ${balance.toHuman()}`)
 }
@@ -130,7 +145,6 @@ async function main() {
     const types = {
         Address: 'AccountId',
         LookupSource: 'AccountId',
-        MoneyIdOf: 'u32',
         CarbonProject: {
             name: 'Vec<u8>',
             max_supply: 'u64',
@@ -160,13 +174,19 @@ async function main() {
         },
         OrderOf: {
             asset_id: 'Hash',
-            money_id: 'MoneyIdOf',
+            money_id: 'Hash',
             maker: 'AccountId',
             status: 'u8',
             amount: 'u64',
             price: 'u64',
             left_amount: 'u64',
             direction: 'u8',
+        },
+        ECRC10: {
+            symbol: 'Vec<u8>',
+            name: 'Vec<u8>',
+            decimals: 'u8',
+            max_supply: 'u64',
         }
     }
     const api = await ApiPromise.create({ provider: wsProvider, types })
@@ -182,15 +202,17 @@ async function main() {
     // await submitProject(api, alice, 'testproject3', '10000000', { registerDate: '2020-09-20', assetYears: 10 })
 
     const projectId = '0x3951995a0b1dbb41a96a1ab0243ec807c2bff01280e5ff566cf6e4c5e63abf35'
-    await queryProject(api, projectId)
+    // await queryProject(api, projectId)
     // await approveProject(api, alice, projectId)
 
-    // await submitAsset(api, alice, '0xbdbaf156861c0b47c2783cfe1efb0001323afbbcb9e573b699a650fab99ab5d8', 'ABC.2020', '2000000', { remark: 'register asset remark' })
-    const assetId = '0x1cb8b1b80d1d1b34da106279bdfe5e9236561033aee5bcf7257af04c3d55f2a3'
+    // await submitAsset(api, alice, projectId, 'ABC.2020', '2000000', { remark: 'register asset remark' })
+    const assetId = '0x6fb74b98a6f55afceb18927bdc276ff29c4c6e95637764621d5536eb7803ea2e'
     // await queryAsset(api, assetId)
 
     // await approveAsset(api, alice, assetId)
     // await queryCarbonBalance(api, assetId, alice.address)
+
+    // await transferCarbonAsset(api, alice, assetId, jack.address, '50000')
 
     // await submitIssue(api, alice, assetId, '100000', { remark: 'issue remark 1' })
     const issueId = '0x001d1beb3dd41b13e2777c0be29be78481f5ba76dd0f5dae4bd6e1d708366e20'
@@ -200,9 +222,11 @@ async function main() {
     const burnId = ''
     // await approveBurn(api, alice, burnId)
 
-    // await issueStandardAsset(api, jack, '30000000')
-    const moneyId = 0
+    // await issueStandardAsset(api, jack, 'USTE', 'ECO2 backed USD coin', 8, '100000000000000000', '100000000000000')
+    const moneyId = '0xb2514c5e056cdf38fa3708917c4b04d85363c8186884cb7a28d0456d8d4d49b6'
+    // await queryStandardAsset(api, moneyId)
     // await queryStandardBalance(api, moneyId, jack.address)
+    // await transferStandardAsset(api, jack, moneyId, alice.address, '60000000')
 
     // await makeOrder(api, alice, assetId, moneyId, '50', '2000000', 0);
     const orderId = '0x4965c24e63492f51a65aa4819d203187b4d4f01eab1ccde18aa888859b54e928'
