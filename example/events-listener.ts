@@ -1,25 +1,27 @@
 import { ApiPromise, WsProvider } from '@polkadot/api'
 
 const Datastore = require('nedb')
+const autoload = false;
 const db = {
-    carbonProjects: new Datastore({ filename: './carbon_projects.db', autoload: true }),
-    carbonAssets: new Datastore({ filename: './carbon_assets.db', autoload: true }),
-    carbonIssues: new Datastore({ filename: './carbon_issues.db', autoload: true }),
-    carbonBurns: new Datastore({ filename: './carbon_burns.db', autoload: true }),
-    orders: new Datastore({ filename: './orders.db', autoload: true }),
-    deals: new Datastore({ filename: './deals.db', autoload: true }),
-    standardAssets: new Datastore({ filename: './standard_assets.db', autoload: true }),
-    potentialBalances: new Datastore({ filename: './potential_balances.db', autoload: true }),
+    carbonProjects: new Datastore({ filename: './.data/carbon_projects.db', autoload }),
+    carbonAssets: new Datastore({ filename: './.data/carbon_assets.db', autoload }),
+    carbonIssues: new Datastore({ filename: './.data/carbon_issues.db', autoload }),
+    carbonBurns: new Datastore({ filename: './.data/carbon_burns.db', autoload }),
+    orders: new Datastore({ filename: './.data/orders.db', autoload }),
+    deals: new Datastore({ filename: './.data/deals.db', autoload }),
+    standardAssets: new Datastore({ filename: './.data/standard_assets.db', autoload }),
+    potentialBalances: new Datastore({ filename: './.data/potential_balances.db', autoload }),
 }
 
 let lastBlockNumber = 0
 let latestBlockNumber = 0
 let initialized = false
+const lastBlockNumberFile = './.data/lastBlockNumber'
 
 const fs = require('fs')
 function readLastBlockNumber() {
     try {
-        const content = fs.readFileSync('./.lastBlockNumber', 'utf8')
+        const content = fs.readFileSync(lastBlockNumberFile, 'utf8')
         return Number.parseInt(content)
     } catch (e) {
         return 1
@@ -27,7 +29,7 @@ function readLastBlockNumber() {
 }
 
 function saveLastBlockNumber(n) {
-    fs.writeFileSync('./.lastBlockNumber', n.toString(), 'utf8')
+    fs.writeFileSync(lastBlockNumberFile, n.toString(), 'utf8')
 }
 
 function dbErrorHandler(err) {
@@ -46,7 +48,8 @@ const eco2EventHandlers = {
         const projectId = data[0].toString()
         const owner = data[1].toString()
         const symbol = Buffer.from(data[2]).toString('utf8')
-        const doc = { projectId, owner, symbol, approved: 0 }
+        const timestamp = data[3].toNumber()
+        const doc = { projectId, owner, symbol, approved: 0, timestamp }
         console.log('ProjectSubmited', doc)
         db.carbonProjects.insert(doc, dbErrorHandler)
     },
@@ -61,7 +64,8 @@ const eco2EventHandlers = {
         const projectId = data[0].toString()
         const assetId = data[1].toString()
         const owner = data[2].toString()
-        const doc = { projectId, assetId, owner, approved: 0 }
+        const timestamp = data[3].toNumber()
+        const doc = { projectId, assetId, owner, approved: 0, timestamp }
         console.log('AssetSubmited', doc)
         db.carbonAssets.insert(doc, dbErrorHandler)
     },
@@ -88,7 +92,8 @@ const eco2EventHandlers = {
         const assetId = data[1].toString()
         const owner = data[2].toString()
         const amount = data[3].toString()
-        const doc = { issueId, assetId, owner, amount, approved: 0 }
+        const timestamp = data[4].toNumber()
+        const doc = { issueId, assetId, owner, amount, approved: 0, timestamp }
         console.log('IssueSubmited', doc)
         db.carbonIssues.insert(doc, dbErrorHandler)
     },
@@ -104,7 +109,8 @@ const eco2EventHandlers = {
         const assetId = data[1].toString()
         const owner = data[2].toString()
         const amount = data[3].toString()
-        const doc = { burnId, assetId, owner, amount, approved: 0 }
+        const timestamp = data[4].toNumber()
+        const doc = { burnId, assetId, owner, amount, approved: 0, timestamp }
         console.log('BurnSubmited', doc)
         db.carbonBurns.insert(doc, dbErrorHandler)
     },
@@ -120,14 +126,17 @@ const eco2EventHandlers = {
         const from = data[1].toString()
         const to = data[2].toString()
         const amount = data[3].toString()
-        console.log('carbonAssets:Transferred', assetId, from, to, amount)
+        const timestamp = data[4].toNumber()
+        console.log('carbonAssets:Transferred', assetId, from, to, amount, timestamp)
         db.potentialBalances.insert(constructPotentialBalanceDoc(to, assetId, 'carbon'), dbErrorHandler)
     },
 
     'carbonExchange:NewOrder': (_, data) => {
         const orderId = data[0].toString()
         const owner = data[1].toString()
-        const doc = { orderId, owner, closed: 0 }
+        const timestamp = data[2].toNumber()
+        const doc = { orderId, owner, closed: 0, timestamp }
+
         console.log('NewOrder', doc)
         db.orders.insert(doc, dbErrorHandler)
     },
@@ -138,7 +147,8 @@ const eco2EventHandlers = {
         const taker = data[2].toString()
         const price = data[3].toString()
         const amount = data[4].toString()
-        const doc = { orderId, maker, taker, price, amount }
+        const timestamp = data[5].toNumber()
+        const doc = { orderId, maker, taker, price, amount, timestamp }
         console.log('NewDeal', doc)
         db.deals.insert(doc, dbErrorHandler)
     },
@@ -159,7 +169,9 @@ const eco2EventHandlers = {
         const assetId = data[0].toString()
         const symbol = Buffer.from(data[1]).toString('utf8')
         const owner = data[2].toString()
-        const doc = { assetId, symbol, owner }
+        // const firstSupply = data[3].toString()
+        const timestamp = data[4].toNumber()
+        const doc = { assetId, symbol, owner, timestamp }
         console.log('standardAssets:NewAsset', doc)
         db.standardAssets.insert(doc, dbErrorHandler)
         db.potentialBalances.insert(constructPotentialBalanceDoc(owner, assetId, 'standard'), dbErrorHandler)
@@ -260,53 +272,125 @@ function startServer() {
         })
     }
 
+    const LIMIT = 25
+
+    function parseIntOr(val, dft) {
+        let n = Number.parseInt(val)
+        return Number.isNaN(n) ? dft : n
+    }
+
+    function getPaginationParams(request) {
+        return {
+            offset: parseIntOr(request.query.offset, 0),
+            limit: parseIntOr(request.query.limit, LIMIT)
+        }
+    }
+
+    function findWithComplexCondition(collection, request, filter, cb) {
+        const { offset, limit } = getPaginationParams(request)
+        const reverse = parseIntOr(request.query.reverse, 0)
+        const sortBy = {
+            timestamp: reverse ? -1 : 1
+        }
+        collection.count(filter, (err1, count) => {
+            if (err1) return cb(err1)
+            collection.find(filter).sort(sortBy).skip(offset).limit(limit).exec((err2, docs) => {
+                if (err2) return cb(err2)
+                return cb(null, { count, docs })
+            })
+        })
+    }
+
     fastify.get('/carbon_projects', (request, reply) => {
-        db.carbonProjects.find({}, (err, docs) => {
-            err ? fail(reply, err) : ok(reply, docs)
+        let filter: { owner?: string, approved?: number } = {}
+        if (request.query.owner) {
+            filter.owner = request.query.owner
+        }
+        if (request.query.approved) {
+            filter.approved = parseIntOr(request.query.approved, 1)
+        }
+        findWithComplexCondition(db.carbonProjects, request, filter, (err, result) => {
+            err ? fail(reply, err) : ok(reply, result)
         })
     })
 
     fastify.get('/carbon_assets', (request, reply) => {
-        db.carbonAssets.find({}, (err, docs) => {
-            err ? fail(reply, err) : ok(reply, docs)
+        let filter: { owner?: string, approved?: number } = {}
+        if (request.query.owner) {
+            filter.owner = request.query.owner
+        }
+        if (request.query.approved) {
+            filter.approved = parseIntOr(request.query.approved, 1)
+        }
+        findWithComplexCondition(db.carbonAssets, request, filter, (err, result) => {
+            err ? fail(reply, err) : ok(reply, result)
         })
     })
 
     fastify.get('/carbon_issues', (request, reply) => {
-        db.carbonIssues.find({}, (err, docs) => {
-            err ? fail(reply, err) : ok(reply, docs)
+        let filter: { owner?: string, approved?: number } = {}
+        if (request.query.owner) {
+            filter.owner = request.query.owner
+        }
+        if (request.query.approved) {
+            filter.approved = parseIntOr(request.query.approved, 1)
+        }
+        findWithComplexCondition(db.carbonIssues, request, filter, (err, result) => {
+            err ? fail(reply, err) : ok(reply, result)
         })
     })
 
     fastify.get('/carbon_burns', (request, reply) => {
-        db.carbonBurns.find({}, (err, docs) => {
-            err ? fail(reply, err) : ok(reply, docs)
+        let filter: { owner?: string, approved?: number } = {}
+        if (request.query.owner) {
+            filter.owner = request.query.owner
+        }
+        if (request.query.approved) {
+            filter.approved = parseIntOr(request.query.approved, 1)
+        }
+        findWithComplexCondition(db.carbonBurns, request, filter, (err, result) => {
+            err ? fail(reply, err) : ok(reply, result)
         })
     })
 
     fastify.get('/carbon_orders', (request, reply) => {
-        db.orders.find({}, (err, docs) => {
-            err ? fail(reply, err) : ok(reply, docs)
+        let filter: { owner?: string, closed?: number } = {}
+        if (request.query.owner) {
+            filter.owner = request.query.owner
+        }
+        if (request.query.closed) {
+            filter.closed = parseIntOr(request.query.approved, 0)
+        }
+        findWithComplexCondition(db.orders, request, filter, (err, result) => {
+            err ? fail(reply, err) : ok(reply, result)
         })
     })
 
     fastify.get('/carbon_deals', (request, reply) => {
-        db.deals.find({}, (err, docs) => {
-            err ? fail(reply, err) : ok(reply, docs)
+        let filter: { owner?: string } = {}
+        if (request.query.owner) {
+            filter.owner = request.query.owner
+        }
+        findWithComplexCondition(db.deals, request, filter, (err, result) => {
+            err ? fail(reply, err) : ok(reply, result)
         })
     })
 
     fastify.get('/standard_assets', (request, reply) => {
-        db.standardAssets.find({}, (err, docs) => {
-            err ? fail(reply, err) : ok(reply, docs)
+        let filter: { owner?: string } = {}
+        if (request.query.owner) {
+            filter.owner = request.query.owner
+        }
+        findWithComplexCondition(db.standardAssets, request, filter, (err, result) => {
+            err ? fail(reply, err) : ok(reply, result)
         })
     })
 
     fastify.get('/potential_balances', (request, reply) => {
-        const query = {
+        const filter = {
             account: request.query.account
         }
-        db.potentialBalances.find(query, (err, docs) => {
+        db.potentialBalances.find(filter, (err, docs) => {
             err ? fail(reply, err) : ok(reply, docs)
         })
     })
@@ -317,28 +401,60 @@ function startServer() {
     })
 }
 
-function initDB() {
-    db.carbonProjects.ensureIndex({ fieldName: 'owner' }, dbErrorHandler)
-    db.carbonProjects.ensureIndex({ fieldName: 'approved' }, dbErrorHandler)
+const { promisify } = require('util')
 
-    db.carbonAssets.ensureIndex({ fieldName: 'projectId' }, dbErrorHandler)
-    db.carbonAssets.ensureIndex({ fieldName: 'owner' }, dbErrorHandler)
-    db.carbonAssets.ensureIndex({ fieldName: 'approved' }, dbErrorHandler)
+function ensureIndexAsync(collection, params) {
+    return promisify(collection.ensureIndex.bind(collection))(params)
+}
 
-    db.carbonIssues.ensureIndex({ fieldName: 'owner' }, dbErrorHandler)
-    db.carbonIssues.ensureIndex({ fieldName: 'approved' }, dbErrorHandler)
+function loadDatabaseAsync(collection) {
+    return promisify(collection.loadDatabase.bind(collection))()
+}
 
-    db.carbonBurns.ensureIndex({ fieldName: 'owner' }, dbErrorHandler)
-    db.carbonBurns.ensureIndex({ fieldName: 'approved' }, dbErrorHandler)
+async function initDB() {
+    await loadDatabaseAsync(db.carbonProjects)
+    await ensureIndexAsync(db.carbonProjects, { fieldName: 'projectId', unique: true })
+    await ensureIndexAsync(db.carbonProjects, { fieldName: 'owner' })
+    await ensureIndexAsync(db.carbonProjects, { fieldName: 'approved' })
+    await ensureIndexAsync(db.carbonProjects, { fieldName: 'timestamp' })
 
-    db.orders.ensureIndex({ fieldName: 'owner' }, dbErrorHandler)
-    db.orders.ensureIndex({ fieldName: 'closed' }, dbErrorHandler)
-    db.deals.ensureIndex({ fieldName: 'owner' }, dbErrorHandler)
+    await loadDatabaseAsync(db.carbonAssets)
+    await ensureIndexAsync(db.carbonAssets, { fieldName: 'assetId', unique: true })
+    await ensureIndexAsync(db.carbonAssets, { fieldName: 'projectId' })
+    await ensureIndexAsync(db.carbonAssets, { fieldName: 'owner' })
+    await ensureIndexAsync(db.carbonAssets, { fieldName: 'approved' })
+    await ensureIndexAsync(db.carbonAssets, { fieldName: 'timestamp' })
 
-    db.standardAssets.ensureIndex({ fieldName: 'owner' }, dbErrorHandler)
+    await loadDatabaseAsync(db.carbonIssues)
+    await ensureIndexAsync(db.carbonIssues, { fieldName: 'issueId', unique: true })
+    await ensureIndexAsync(db.carbonIssues, { fieldName: 'owner' })
+    await ensureIndexAsync(db.carbonIssues, { fieldName: 'approved' })
+    await ensureIndexAsync(db.carbonIssues, { fieldName: 'timestamp' })
 
-    db.potentialBalances.ensureIndex({ fieldName: 'key', unique: true }, dbErrorHandler)
-    db.potentialBalances.ensureIndex({ fieldName: 'account' }, dbErrorHandler)
+    await loadDatabaseAsync(db.carbonBurns)
+    await ensureIndexAsync(db.carbonBurns, { fieldName: 'burnId', unique: true })
+    await ensureIndexAsync(db.carbonBurns, { fieldName: 'owner' })
+    await ensureIndexAsync(db.carbonBurns, { fieldName: 'approved' })
+    await ensureIndexAsync(db.carbonBurns, { fieldName: 'timestamp' })
+
+    await loadDatabaseAsync(db.orders)
+    await ensureIndexAsync(db.orders, { fieldName: 'orderId', unique: true })
+    await ensureIndexAsync(db.orders, { fieldName: 'owner' })
+    await ensureIndexAsync(db.orders, { fieldName: 'closed' })
+    await ensureIndexAsync(db.orders, { fieldName: 'timestamp' })
+
+    await loadDatabaseAsync(db.deals)
+    await ensureIndexAsync(db.deals, { fieldName: 'owner' })
+    await ensureIndexAsync(db.deals, { fieldName: 'timestamp' })
+
+    await loadDatabaseAsync(db.standardAssets)
+    await ensureIndexAsync(db.standardAssets, { fieldName: 'assetId', unique: true })
+    await ensureIndexAsync(db.standardAssets, { fieldName: 'owner' })
+    await ensureIndexAsync(db.standardAssets, { fieldName: 'timestamp' })
+
+    await loadDatabaseAsync(db.potentialBalances)
+    await ensureIndexAsync(db.potentialBalances, { fieldName: 'key', unique: true })
+    await ensureIndexAsync(db.potentialBalances, { fieldName: 'account' })
 }
 
 async function main() {
@@ -350,7 +466,7 @@ async function main() {
     // listenBlocks(api)
     // processEventsAtBlock(api, '0x7e6500c8af6d02a132fdfbbf538fe0f81430d257827adfd1572f4d4104a4fb97')
     lastBlockNumber = readLastBlockNumber()
-    initDB()
+    await initDB()
 
     listenBlocks(api)
     startServer()

@@ -35,7 +35,7 @@ async function transfer(api: ApiPromise, sender: KeyringPair, to: string, amount
 }
 
 async function submitProject(api: ApiPromise, sender: KeyringPair, symbol: string, maxSupply: string, additional: {}) {
-    const tx = api.tx['carbonAssets']['submitProject'](name, maxSupply, JSON.stringify(additional))
+    const tx = api.tx['carbonAssets']['submitProject'](symbol, maxSupply, JSON.stringify(additional))
     await submitTx('submitProject', tx, sender)
 }
 
@@ -201,12 +201,12 @@ async function main() {
 
     // await submitProject(api, alice, 'ABC', '10000000', { registerDate: '2020-09-20', lifetime: '2020-2025' })
 
-    const projectId = '0x3951995a0b1dbb41a96a1ab0243ec807c2bff01280e5ff566cf6e4c5e63abf35'
+    const projectId = '0x58965ddaa7cdd74c23eba6f0141b1ef8128e9d0a0145073c51306c1d7679b676'
     // await queryProject(api, projectId)
     // await approveProject(api, alice, projectId)
 
     // await submitAsset(api, alice, projectId, '2020', '2000000', { remark: 'register asset remark' })
-    const assetId = '0x6fb74b98a6f55afceb18927bdc276ff29c4c6e95637764621d5536eb7803ea2e'
+    const assetId = '0x75b8a626a38d10a72799709e28d96da122cc914cc7df8f0d3a3c364bb6c29c86'
     // await queryAsset(api, assetId)
 
     // await approveAsset(api, alice, assetId)
@@ -215,7 +215,7 @@ async function main() {
     // await transferCarbonAsset(api, alice, assetId, jack.address, '50000')
 
     // await submitIssue(api, alice, assetId, '100000', { remark: 'issue remark 1' })
-    const issueId = '0x001d1beb3dd41b13e2777c0be29be78481f5ba76dd0f5dae4bd6e1d708366e20'
+    const issueId = '0xc57c94b5fc225426ab52a6b9bdb63c919ef8171faafd01535d9c824843a60233'
     // await approveIssue(api, alice, issueId)
 
     // await submitBurn(api, alice, assetId, '200000', { remark: 'burn remark 1' })
