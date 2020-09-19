@@ -29,7 +29,10 @@ pub struct Order<AccountId, Hash> {
 type OrderOf<T> = Order<<T as frame_system::Trait>::AccountId, <T as frame_system::Trait>::Hash>;
 
 pub trait Trait:
-	frame_system::Trait + pallet_carbon_assets::Trait + pallet_standard_assets::Trait
+	frame_system::Trait
+	+ pallet_timestamp::Trait
+	+ pallet_carbon_assets::Trait
+	+ pallet_standard_assets::Trait
 {
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -45,9 +48,10 @@ decl_event!(
 	where
 		AccountId = <T as frame_system::Trait>::AccountId,
 		Hash = <T as frame_system::Trait>::Hash,
+		Moment = <T as pallet_timestamp::Trait>::Moment,
 	{
-		NewOrder(Hash, AccountId),
-		NewDeal(Hash, AccountId, AccountId, u64, u64),
+		NewOrder(Hash, AccountId, Moment),
+		NewDeal(Hash, AccountId, AccountId, u64, u64, Moment),
 		OrderFinished(Hash),
 		OrderCanceled(Hash),
 	}
@@ -56,6 +60,7 @@ decl_event!(
 decl_error! {
 	pub enum Error for Module<T: Trait> {
 		InvalidIndex,
+		DuplicatedKey,
 		StorageOverflow,
 		InsuffientMoney,
 		AmountHigh,
@@ -73,6 +78,9 @@ decl_module! {
 		pub fn make_order(origin, asset_id: T::Hash, money_id: T::Hash, price: u64, amount: u64, direction: u8) -> dispatch::DispatchResult {
 			let maker = ensure_signed(origin)?;
 
+			let order_id = T::Hashing::hash_of(&(b"order", &maker, asset_id, money_id, price, amount, direction));
+			ensure!(!<Orders<T>>::contains_key(order_id), Error::<T>::DuplicatedKey);
+
 			let order = Order {
 				asset_id,
 				money_id,
@@ -83,9 +91,10 @@ decl_module! {
 				left_amount: amount,
 				status: 0,
 			};
-			let order_id = T::Hashing::hash_of(&order);
 			<Orders<T>>::insert(order_id, order);
-			Self::deposit_event(RawEvent::NewOrder(order_id, maker));
+
+			let now = <pallet_timestamp::Module<T>>::get();
+			Self::deposit_event(RawEvent::NewOrder(order_id, maker, now));
 
 			Ok(())
 		}
@@ -115,7 +124,8 @@ decl_module! {
 				Self::deposit_event(RawEvent::OrderFinished(order_id));
 			}
 
-			Self::deposit_event(RawEvent::NewDeal(order_id, maker, taker, price, amount));
+			let now = <pallet_timestamp::Module<T>>::get();
+			Self::deposit_event(RawEvent::NewDeal(order_id, maker, taker, price, amount, now));
 
 			Ok(())
 		}

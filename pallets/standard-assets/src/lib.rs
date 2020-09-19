@@ -8,7 +8,7 @@ use sp_runtime::{traits::Hash, RuntimeDebug};
 use sp_std::prelude::*;
 
 /// The module configuration trait.
-pub trait Trait: frame_system::Trait {
+pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
 	/// The overarching event type.
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -25,11 +25,12 @@ decl_event! {
 	pub enum Event<T> where
 		<T as frame_system::Trait>::Hash,
 		<T as frame_system::Trait>::AccountId,
+		<T as pallet_timestamp::Trait>::Moment,
 	{
-		/// Some assets were issued. \[asset_id, owner, symbol, first_supply\]
-		NewAsset(Hash, Vec<u8>, AccountId, u64),
-		/// Some assets were transferred. \[asset_id, from, to, amount\]
-		Transferred(Hash, AccountId, AccountId, u64),
+		/// Some assets were issued. \[asset_id, owner, symbol, first_supply, timestamp\]
+		NewAsset(Hash, Vec<u8>, AccountId, u64, Moment),
+		/// Some assets were transferred. \[asset_id, from, to, amount, timestamp\]
+		Transferred(Hash, AccountId, AccountId, u64, Moment),
 		/// Some assets were minted. \[asset_id, owner, amount\]
 		Minted(Hash,AccountId, u64),
 		/// Some assets were destroyed. \[asset_id, owner, amount\]
@@ -79,18 +80,20 @@ decl_module! {
 		fn issue(origin, symbol: Vec<u8>, name: Vec<u8>, decimals: u8,  max_supply: u64, first_supply: u64) {
 			let origin = ensure_signed(origin)?;
 
+			let asset_id = T::Hashing::hash_of(&(b"ECRC10", &origin, &symbol, &name, decimals, max_supply, first_supply));
+
 			let asset_info = ECRC10 {
 				symbol: symbol.clone(),
 				name,
 				decimals,
 				max_supply,
 			};
-			let asset_id = T::Hashing::hash_of(&asset_info);
 			<AssetInfos<T>>::insert(asset_id, asset_info);
 			<Balances<T>>::insert((asset_id, &origin), first_supply);
 			<TotalSupply<T>>::insert(asset_id, first_supply);
 
-			Self::deposit_event(RawEvent::NewAsset(asset_id, symbol, origin, first_supply));
+			let now = <pallet_timestamp::Module<T>>::get();
+			Self::deposit_event(RawEvent::NewAsset(asset_id, symbol, origin, first_supply, now));
 		}
 
 		/// Move some assets from one holder to another.
@@ -109,9 +112,11 @@ decl_module! {
 			ensure!(amount != 0, Error::<T>::AmountZero);
 			ensure!(origin_balance >= amount, Error::<T>::BalanceLow);
 
-			Self::deposit_event(RawEvent::Transferred(id, origin, target.clone(), amount));
 			<Balances<T>>::insert(origin_account, origin_balance - amount);
-			<Balances<T>>::mutate((id, target), |balance| *balance += amount);
+			<Balances<T>>::mutate((id, target.clone()), |balance| *balance += amount);
+
+			let now = <pallet_timestamp::Module<T>>::get();
+			Self::deposit_event(RawEvent::Transferred(id, origin, target, amount, now));
 		}
 
 		/// Mint any assets of `id` owned by `origin`.

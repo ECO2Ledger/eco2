@@ -41,13 +41,7 @@ git = 'https://github.com/paritytech/substrate.git'
 tag = 'v2.0.0-rc6'
 version = '2.0.0-rc6'
 
-[dev-dependencies.sp-core]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-tag = 'v2.0.0-rc6'
-version = '2.0.0-rc6'
-
-[dev-dependencies.sp-io]
+[dependencies.pallet-timestamp]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 tag = 'v2.0.0-rc6'
@@ -66,6 +60,18 @@ package = 'pallet-carbon-assets'
 path = '../carbon-assets'
 version = '2.0.0-rc6'
 
+[dev-dependencies.sp-core]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0-rc6'
+version = '2.0.0-rc6'
+
+[dev-dependencies.sp-io]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0-rc6'
+version = '2.0.0-rc6'
+
 [features]
 default = ['std']
 std = [
@@ -74,6 +80,7 @@ std = [
   'sp-runtime/std',
   'frame-support/std',
   'frame-system/std',
+  'pallet-timestamp/std',
   'pallet-standard-assets/std',
   'pallet-carbon-assets/std',
 ]

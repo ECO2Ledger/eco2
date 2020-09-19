@@ -48,7 +48,7 @@ pub struct BurnInfo<Hash> {
 	pub additional: Vec<u8>,
 }
 
-pub trait Trait: frame_system::Trait {
+pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
@@ -69,25 +69,26 @@ decl_event!(
 	where
 		AccountId = <T as frame_system::Trait>::AccountId,
 		Hash = <T as frame_system::Trait>::Hash,
+		Moment = <T as pallet_timestamp::Trait>::Moment,
 	{
-		/// Some project was submitted. \[project_id, owner, symbol\]
-		ProjectSubmited(Hash, AccountId, Vec<u8>),
+		/// Some project was submitted. \[project_id, owner, symbol, timestamp\]
+		ProjectSubmited(Hash, AccountId, Vec<u8>, Moment),
 		/// The project was approved. \[project_id\]
 		ProjectApproved(Hash),
-		/// Some assets was submitted. \[project_id, asset_id, owner\]
-		AssetSubmited(Hash, Hash, AccountId),
+		/// Some assets was submitted. \[project_id, asset_id, owner, timestamp\]
+		AssetSubmited(Hash, Hash, AccountId, Moment),
 		/// The asset was approved. \[asset_id\]
 		AssetApproved(Hash),
-		/// Asset issue was submitted. \[issue_id, asset_id, owner, amount\]
-		IssueSubmited(Hash, Hash, AccountId, u64),
+		/// Asset issue was submitted. \[issue_id, asset_id, owner, amount, timestamp\]
+		IssueSubmited(Hash, Hash, AccountId, u64, Moment),
 		/// Asset issue was approved. \[issue_id\]
 		IssueApproved(Hash),
-		/// Asset burn was submitted. \[burn_id, asset_id, owner, amount\]
-		BurnSubmited(Hash, Hash, AccountId, u64),
+		/// Asset burn was submitted. \[burn_id, asset_id, owner, amount, timestamp\]
+		BurnSubmited(Hash, Hash, AccountId, u64, Moment),
 		/// Asset burn was approved. \[burn_id\]
 		BurnApproved(Hash),
-		/// Some assets were transferred. \[asset_id, from, to, amount]\
-		Transferred(Hash, AccountId, AccountId, u64),
+		/// Some assets were transferred. \[asset_id, from, to, amount, timestamp]\
+		Transferred(Hash, AccountId, AccountId, u64, Moment),
 	}
 );
 
@@ -127,7 +128,8 @@ decl_module! {
 			<Projects<T>>::insert(project_id, project);
 			<ProjectAdditionals<T>>::insert(project_id, additional);
 
-			Self::deposit_event(RawEvent::ProjectSubmited(project_id, sender, symbol));
+			let now = <pallet_timestamp::Module<T>>::get();
+			Self::deposit_event(RawEvent::ProjectSubmited(project_id, sender, symbol, now));
 
 			Ok(())
 		}
@@ -167,7 +169,8 @@ decl_module! {
 			<Assets<T>>::insert(asset_id, asset);
 			<AssetAdditionals<T>>::insert(asset_id, additional);
 
-			Self::deposit_event(RawEvent::AssetSubmited(project_id, asset_id, sender));
+			let now = <pallet_timestamp::Module<T>>::get();
+			Self::deposit_event(RawEvent::AssetSubmited(project_id, asset_id, sender, now));
 
 			Ok(())
 		}
@@ -213,7 +216,8 @@ decl_module! {
 			};
 			<Issues<T>>::insert(issue_id, issue_info);
 
-			Self::deposit_event(RawEvent::IssueSubmited(issue_id, asset_id, sender, amount));
+			let now = <pallet_timestamp::Module<T>>::get();
+			Self::deposit_event(RawEvent::IssueSubmited(issue_id, asset_id, sender, amount, now));
 
 			Ok(())
 		}
@@ -266,7 +270,8 @@ decl_module! {
 			};
 			<Burns<T>>::insert(burn_id, burn_info);
 
-			Self::deposit_event(RawEvent::BurnSubmited(burn_id, asset_id, sender, amount));
+			let now = <pallet_timestamp::Module<T>>::get();
+			Self::deposit_event(RawEvent::BurnSubmited(burn_id, asset_id, sender, amount, now));
 
 			Ok(())
 		}
@@ -310,7 +315,8 @@ decl_module! {
 
 			Self::make_transfer(&asset_id, &sender, &to, amount)?;
 
-			Self::deposit_event(RawEvent::Transferred(asset_id, sender, to, amount));
+			let now = <pallet_timestamp::Module<T>>::get();
+			Self::deposit_event(RawEvent::Transferred(asset_id, sender, to, amount, now));
 
 			Ok(())
 		}
