@@ -1,30 +1,39 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, Parameter};
+use codec::{Decode, Encode};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_signed;
-use sp_runtime::traits::One;
-use sp_runtime::traits::{AtLeast32Bit, StaticLookup, Zero};
 use sp_runtime::DispatchResult;
+use sp_runtime::{traits::Hash, RuntimeDebug};
+use sp_std::prelude::*;
 
 /// The module configuration trait.
 pub trait Trait: frame_system::Trait {
 	/// The overarching event type.
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+}
 
-	type AssetId: Parameter + AtLeast32Bit + Default + Copy;
+#[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug)]
+pub struct ECRC10 {
+	pub symbol: Vec<u8>,
+	pub name: Vec<u8>,
+	pub decimals: u8,
+	pub max_supply: u64,
 }
 
 decl_event! {
 	pub enum Event<T> where
+		<T as frame_system::Trait>::Hash,
 		<T as frame_system::Trait>::AccountId,
-		<T as Trait>::AssetId,
 	{
-		/// Some assets were issued. \[asset_id, owner, total_supply\]
-		Issued(AssetId, AccountId, u64),
+		/// Some assets were issued. \[asset_id, owner, symbol, first_supply\]
+		NewAsset(Hash, Vec<u8>, AccountId, u64),
 		/// Some assets were transferred. \[asset_id, from, to, amount\]
-		Transferred(AssetId, AccountId, AccountId, u64),
-		/// Some assets were destroyed. \[asset_id, owner, balance\]
-		Destroyed(AssetId, AccountId, u64),
+		Transferred(Hash, AccountId, AccountId, u64),
+		/// Some assets were minted. \[asset_id, owner, amount\]
+		Minted(Hash,AccountId, u64),
+		/// Some assets were destroyed. \[asset_id, owner, amount\]
+		Burned(Hash, AccountId, u64),
 	}
 }
 
@@ -40,15 +49,14 @@ decl_error! {
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as Assets {
+	trait Store for Module<T: Trait> as StandardAssets {
+		AssetInfos: map hasher(identity) T::Hash => Option<ECRC10>;
 		/// The number of units of assets held by any given account.
-		Balances: map hasher(blake2_128_concat) (T::AssetId, T::AccountId) => u64;
-		/// The next asset identifier up for grabs.
-		NextAssetId get(fn next_asset_id): T::AssetId;
+		Balances: map hasher(blake2_128_concat) (T::Hash, T::AccountId) => u64;
 		/// The total unit supply of an asset.
 		///
 		/// TWOX-NOTE: `AssetId` is trusted, so this is safe.
-		TotalSupply: map hasher(twox_64_concat) T::AssetId => u64;
+		TotalSupply: map hasher(twox_64_concat) T::Hash => u64;
 	}
 }
 
@@ -68,16 +76,21 @@ decl_module! {
 		/// - 1 event.
 		/// # </weight>
 		#[weight = 0]
-		fn issue(origin, #[compact] total: u64) {
+		fn issue(origin, symbol: Vec<u8>, name: Vec<u8>, decimals: u8,  max_supply: u64, first_supply: u64) {
 			let origin = ensure_signed(origin)?;
 
-			let id = Self::next_asset_id();
-			<NextAssetId<T>>::mutate(|id| *id += One::one());
+			let asset_info = ECRC10 {
+				symbol: symbol.clone(),
+				name,
+				decimals,
+				max_supply,
+			};
+			let asset_id = T::Hashing::hash_of(&asset_info);
+			<AssetInfos<T>>::insert(asset_id, asset_info);
+			<Balances<T>>::insert((asset_id, &origin), first_supply);
+			<TotalSupply<T>>::insert(asset_id, first_supply);
 
-			<Balances<T>>::insert((id, &origin), total);
-			<TotalSupply<T>>::insert(id, total);
-
-			Self::deposit_event(RawEvent::Issued(id, origin, total));
+			Self::deposit_event(RawEvent::NewAsset(asset_id, symbol, origin, first_supply));
 		}
 
 		/// Move some assets from one holder to another.
@@ -89,16 +102,11 @@ decl_module! {
 		/// - 1 event.
 		/// # </weight>
 		#[weight = 0]
-		fn transfer(origin,
-			#[compact] id: T::AssetId,
-			target: <T::Lookup as StaticLookup>::Source,
-			#[compact] amount: u64
-		) {
+		fn transfer(origin,	id: T::Hash, target: T::AccountId,  amount: u64) {
 			let origin = ensure_signed(origin)?;
 			let origin_account = (id, origin.clone());
 			let origin_balance = <Balances<T>>::get(&origin_account);
-			let target = T::Lookup::lookup(target)?;
-			ensure!(!amount.is_zero(), Error::<T>::AmountZero);
+			ensure!(amount != 0, Error::<T>::AmountZero);
 			ensure!(origin_balance >= amount, Error::<T>::BalanceLow);
 
 			Self::deposit_event(RawEvent::Transferred(id, origin, target.clone(), amount));
@@ -106,7 +114,7 @@ decl_module! {
 			<Balances<T>>::mutate((id, target), |balance| *balance += amount);
 		}
 
-		/// Destroy any assets of `id` owned by `origin`.
+		/// Mint any assets of `id` owned by `origin`.
 		///
 		/// # <weight>
 		/// - `O(1)`
@@ -115,13 +123,33 @@ decl_module! {
 		/// - 1 event.
 		/// # </weight>
 		#[weight = 0]
-		fn destroy(origin, #[compact] id: T::AssetId) {
+		fn mint(origin, id: T::Hash, amount: u64) {
 			let origin = ensure_signed(origin)?;
-			let balance = <Balances<T>>::take((id, &origin));
-			ensure!(!balance.is_zero(), Error::<T>::BalanceZero);
 
-			<TotalSupply<T>>::mutate(id, |total_supply| *total_supply -= balance);
-			Self::deposit_event(RawEvent::Destroyed(id, origin, balance));
+			let origin_account = (id, origin.clone());
+			<Balances<T>>::mutate(origin_account, |balance| *balance += amount);
+			<TotalSupply<T>>::mutate(id, |total_supply| *total_supply += amount);
+			Self::deposit_event(RawEvent::Minted(id, origin, amount));
+		}
+
+		/// Burn any assets of `id` owned by `origin`.
+		///
+		/// # <weight>
+		/// - `O(1)`
+		/// - 1 storage mutation (codec `O(1)`).
+		/// - 1 storage deletion (codec `O(1)`).
+		/// - 1 event.
+		/// # </weight>
+		#[weight = 0]
+		fn burn(origin, id: T::Hash, amount: u64) {
+			let origin = ensure_signed(origin)?;
+
+			let origin_account = (id, origin.clone());
+			let origin_balance = <Balances<T>>::get(&origin_account);
+			ensure!(origin_balance >= amount, Error::<T>::BalanceLow);
+			<Balances<T>>::insert(origin_account, origin_balance - amount);
+			<TotalSupply<T>>::mutate(id, |total_supply| *total_supply -= amount);
+			Self::deposit_event(RawEvent::Burned(id, origin, amount));
 		}
 	}
 }
@@ -131,17 +159,17 @@ impl<T: Trait> Module<T> {
 	// Public immutables
 
 	/// Get the asset `id` balance of `who`.
-	pub fn balance(id: T::AssetId, who: T::AccountId) -> u64 {
+	pub fn balance(id: T::Hash, who: T::AccountId) -> u64 {
 		<Balances<T>>::get((id, who))
 	}
 
 	/// Get the total supply of an asset `id`.
-	pub fn total_supply(id: T::AssetId) -> u64 {
+	pub fn total_supply(id: T::Hash) -> u64 {
 		<TotalSupply<T>>::get(id)
 	}
 
 	pub fn make_transfer(
-		asset_id: &T::AssetId,
+		asset_id: &T::Hash,
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: u64,

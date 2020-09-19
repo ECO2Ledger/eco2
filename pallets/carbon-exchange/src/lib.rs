@@ -8,8 +8,6 @@ use frame_system::ensure_signed;
 use sp_runtime::{traits::Hash, RuntimeDebug};
 use sp_std::prelude::*;
 
-type MoneyIdOf<T> = <T as pallet_standard_assets::Trait>::AssetId;
-
 // #[cfg(test)]
 // mod mock;
 
@@ -17,9 +15,9 @@ type MoneyIdOf<T> = <T as pallet_standard_assets::Trait>::AssetId;
 // mod tests;
 
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug)]
-pub struct Order<AccountId, Hash, MoneyId> {
+pub struct Order<AccountId, Hash> {
 	pub asset_id: Hash,
-	pub money_id: MoneyId,
+	pub money_id: Hash,
 	pub maker: AccountId,
 	pub status: u8,
 	pub amount: u64,
@@ -28,8 +26,7 @@ pub struct Order<AccountId, Hash, MoneyId> {
 	pub direction: u8,
 }
 
-type OrderOf<T> =
-	Order<<T as frame_system::Trait>::AccountId, <T as frame_system::Trait>::Hash, MoneyIdOf<T>>;
+type OrderOf<T> = Order<<T as frame_system::Trait>::AccountId, <T as frame_system::Trait>::Hash>;
 
 pub trait Trait:
 	frame_system::Trait + pallet_carbon_assets::Trait + pallet_standard_assets::Trait
@@ -73,7 +70,7 @@ decl_module! {
 		fn deposit_event() = default;
 
 		#[weight = 10_000 + T::DbWeight::get().writes(1)]
-		pub fn make_order(origin, asset_id: T::Hash, money_id: MoneyIdOf<T>, price: u64, amount: u64, direction: u8) -> dispatch::DispatchResult {
+		pub fn make_order(origin, asset_id: T::Hash, money_id: T::Hash, price: u64, amount: u64, direction: u8) -> dispatch::DispatchResult {
 			let maker = ensure_signed(origin)?;
 
 			let order = Order {

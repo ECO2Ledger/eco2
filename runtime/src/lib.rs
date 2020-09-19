@@ -258,7 +258,6 @@ impl pallet_sudo::Trait for Runtime {
 
 impl pallet_standard_assets::Trait for Runtime {
 	type Event = Event;
-	type AssetId = u32;
 }
 
 impl pallet_carbon_assets::Trait for Runtime {
