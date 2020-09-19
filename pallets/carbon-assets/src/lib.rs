@@ -1,7 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch, traits::Get};
+use frame_support::{
+	decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, traits::Get,
+};
 use frame_system::ensure_signed;
 use sp_runtime::{traits::Hash, DispatchResult, RuntimeDebug};
 use sp_std::prelude::*;
@@ -14,7 +16,7 @@ use sp_std::prelude::*;
 
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug)]
 pub struct CarbonProject<AccountId> {
-	pub name: Vec<u8>,
+	pub symbol: Vec<u8>,
 	pub max_supply: u64,
 	pub total_supply: u64,
 	pub status: u8,
@@ -24,7 +26,7 @@ pub struct CarbonProject<AccountId> {
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug)]
 pub struct CarbonAsset<Hash> {
 	pub project_id: Hash,
-	pub symbol: Vec<u8>,
+	pub vintage: Vec<u8>,
 	pub initial_supply: u64,
 	pub total_supply: u64,
 	pub status: u8,
@@ -68,14 +70,23 @@ decl_event!(
 		AccountId = <T as frame_system::Trait>::AccountId,
 		Hash = <T as frame_system::Trait>::Hash,
 	{
+		/// Some project was submitted. \[project_id, owner, symbol\]
 		ProjectSubmited(Hash, AccountId, Vec<u8>),
+		/// The project was approved. \[project_id\]
 		ProjectApproved(Hash),
-		AssetSubmited(Hash, Hash, AccountId, Vec<u8>),
+		/// Some assets was submitted. \[project_id, asset_id, owner\]
+		AssetSubmited(Hash, Hash, AccountId),
+		/// The asset was approved. \[asset_id\]
 		AssetApproved(Hash),
+		/// Asset issue was submitted. \[issue_id, asset_id, owner, amount\]
 		IssueSubmited(Hash, Hash, AccountId, u64),
+		/// Asset issue was approved. \[issue_id\]
 		IssueApproved(Hash),
+		/// Asset burn was submitted. \[burn_id, asset_id, owner, amount\]
 		BurnSubmited(Hash, Hash, AccountId, u64),
+		/// Asset burn was approved. \[burn_id\]
 		BurnApproved(Hash),
+		/// Some assets were transferred. \[asset_id, from, to, amount]\
 		Transferred(Hash, AccountId, AccountId, u64),
 	}
 );
@@ -84,6 +95,12 @@ decl_error! {
 	pub enum Error for Module<T: Trait> {
 		InvalidIndex,
 		StorageOverflow,
+		DuplicatedKey,
+		AlreadyApproved,
+		ProjectNotApproved,
+		AssetNotApproved,
+		AmountZero,
+		BalanceLow,
 	}
 }
 
@@ -94,21 +111,23 @@ decl_module! {
 		fn deposit_event() = default;
 
 		#[weight = 10_000 + T::DbWeight::get().writes(1)]
-		pub fn submit_project(origin, name: Vec<u8>, max_supply: u64, additional: Vec<u8>) -> dispatch::DispatchResult {
+		pub fn submit_project(origin, symbol: Vec<u8>, max_supply: u64, additional: Vec<u8>) -> dispatch::DispatchResult {
 			let sender = ensure_signed(origin)?;
 
+			let project_id = T::Hashing::hash_of(&(b"project", &sender, &symbol, max_supply, &additional));
+			ensure!(!<Projects<T>>::contains_key(project_id), Error::<T>::DuplicatedKey);
+
 			let project = CarbonProject {
-				name: name.clone(),
+				symbol: symbol.clone(),
 				max_supply,
 				total_supply: 0,
 				status: 0,
 				owner: sender.clone(),
 			};
-			let project_id = T::Hashing::hash_of(&project);
 			<Projects<T>>::insert(project_id, project);
 			<ProjectAdditionals<T>>::insert(project_id, additional);
 
-			Self::deposit_event(RawEvent::ProjectSubmited(project_id, sender, name));
+			Self::deposit_event(RawEvent::ProjectSubmited(project_id, sender, symbol));
 
 			Ok(())
 		}
@@ -118,6 +137,8 @@ decl_module! {
 			let _ = ensure_signed(origin)?;
 
 			let mut project = Self::get_project(project_id).ok_or(Error::<T>::InvalidIndex)?;
+			ensure!(project.status == 0, Error::<T>::AlreadyApproved);
+
 			project.status = 1;
 			<Projects<T>>::insert(project_id, &project);
 
@@ -127,21 +148,26 @@ decl_module! {
 		}
 
 		#[weight = 10_000 + T::DbWeight::get().writes(1)]
-		pub fn submit_asset(origin, project_id: T::Hash, symbol: Vec<u8>, initial_supply: u64, additional: Vec<u8>) -> dispatch::DispatchResult {
+		pub fn submit_asset(origin, project_id: T::Hash, vintage: Vec<u8>, initial_supply: u64, additional: Vec<u8>) -> dispatch::DispatchResult {
 			let sender = ensure_signed(origin)?;
+
+			let project = Self::get_project(project_id).ok_or(Error::<T>::InvalidIndex)?;
+			ensure!(project.status == 1, Error::<T>::ProjectNotApproved);
+
+			let asset_id = T::Hashing::hash_of(&(b"asset", &sender, project_id, &vintage, initial_supply, &additional));
+			ensure!(!<Assets<T>>::contains_key(asset_id), Error::<T>::DuplicatedKey);
 
 			let asset = CarbonAsset {
 				project_id,
-				symbol: symbol.clone(),
+				vintage: vintage.clone(),
 				initial_supply,
 				total_supply: 0,
 				status: 0,
 			};
-			let asset_id = T::Hashing::hash_of(&asset);
 			<Assets<T>>::insert(asset_id, asset);
 			<AssetAdditionals<T>>::insert(asset_id, additional);
 
-			Self::deposit_event(RawEvent::AssetSubmited(project_id, asset_id, sender, symbol));
+			Self::deposit_event(RawEvent::AssetSubmited(project_id, asset_id, sender));
 
 			Ok(())
 		}
@@ -151,10 +177,13 @@ decl_module! {
 			let sender = ensure_signed(origin)?;
 
 			let mut asset = Self::get_asset(asset_id).ok_or(Error::<T>::InvalidIndex)?;
+			ensure!(asset.status == 0, Error::<T>::AlreadyApproved);
+
+			let mut project = Self::get_project(asset.project_id).ok_or(Error::<T>::InvalidIndex)?;
+
 			asset.status = 1;
 			asset.total_supply = asset.initial_supply;
 
-			let mut project = Self::get_project(asset.project_id).ok_or(Error::<T>::InvalidIndex)?;
 			project.total_supply += asset.initial_supply;
 
 			<Assets<T>>::insert(asset_id, &asset);
@@ -170,13 +199,18 @@ decl_module! {
 		pub fn submit_issue(origin, asset_id: T::Hash, amount: u64, additional: Vec<u8>) -> dispatch::DispatchResult {
 			let sender = ensure_signed(origin)?;
 
+			let asset = Self::get_asset(asset_id).ok_or(Error::<T>::InvalidIndex)?;
+			ensure!(asset.status == 1, Error::<T>::AssetNotApproved);
+
+			let issue_id = T::Hashing::hash_of(&(b"issue", &sender, asset_id, amount, &additional));
+			ensure!(!<Issues<T>>::contains_key(issue_id), Error::<T>::DuplicatedKey);
+
 			let issue_info = IssueInfo {
 				asset_id,
 				amount,
 				status: 0,
 				additional,
 			};
-			let issue_id = T::Hashing::hash_of(&issue_info);
 			<Issues<T>>::insert(issue_id, issue_info);
 
 			Self::deposit_event(RawEvent::IssueSubmited(issue_id, asset_id, sender, amount));
@@ -189,13 +223,15 @@ decl_module! {
 			let sender = ensure_signed(origin)?;
 
 			let mut issue_info = Self::get_issue(issue_id).ok_or(Error::<T>::InvalidIndex)?;
-			issue_info.status = 1;
+			ensure!(issue_info.status == 0, Error::<T>::AlreadyApproved);
 
 			let asset_id = issue_info.asset_id;
 			let mut asset = Self::get_asset(asset_id).ok_or(Error::<T>::InvalidIndex)?;
 
 			let project_id = asset.project_id;
 			let mut project = Self::get_project(project_id).ok_or(Error::<T>::InvalidIndex)?;
+
+			issue_info.status = 1;
 
 			// TODO(check project total_supply <= max_supply)
 			project.total_supply += issue_info.amount;
@@ -216,13 +252,18 @@ decl_module! {
 		pub fn submit_burn(origin, asset_id: T::Hash, amount: u64, additional: Vec<u8>) -> dispatch::DispatchResult {
 			let sender = ensure_signed(origin)?;
 
+			let asset = Self::get_asset(asset_id).ok_or(Error::<T>::InvalidIndex)?;
+			ensure!(asset.status == 1, Error::<T>::AssetNotApproved);
+
+			let burn_id = T::Hashing::hash_of(&(b"burn", &sender, asset_id, amount, &additional));
+			ensure!(!<Projects<T>>::contains_key(burn_id), Error::<T>::DuplicatedKey);
+
 			let burn_info = BurnInfo {
 				asset_id,
 				amount,
 				status: 0,
 				additional,
 			};
-			let burn_id = T::Hashing::hash_of(&burn_info);
 			<Burns<T>>::insert(burn_id, burn_info);
 
 			Self::deposit_event(RawEvent::BurnSubmited(burn_id, asset_id, sender, amount));
@@ -235,7 +276,7 @@ decl_module! {
 			let sender = ensure_signed(origin)?;
 
 			let mut burn_info = Self::get_burn(burn_id).ok_or(Error::<T>::InvalidIndex)?;
-			burn_info.status = 1;
+			ensure!(burn_info.status == 0, Error::<T>::AlreadyApproved);
 
 			let asset_id = burn_info.asset_id;
 			let mut asset = Self::get_asset(asset_id).ok_or(Error::<T>::InvalidIndex)?;
@@ -243,6 +284,7 @@ decl_module! {
 			let project_id = asset.project_id;
 			let mut project = Self::get_project(project_id).ok_or(Error::<T>::InvalidIndex)?;
 
+			burn_info.status = 1;
 			project.total_supply -= burn_info.amount;
 			asset.total_supply -= burn_info.amount;
 
@@ -259,6 +301,12 @@ decl_module! {
 		#[weight = 10_000 + T::DbWeight::get().writes(1)]
 		pub fn transfer(origin, asset_id: T::Hash, to: T::AccountId, amount: u64) -> dispatch::DispatchResult {
 			let sender = ensure_signed(origin)?;
+
+			let origin_account = (asset_id, sender.clone());
+			let origin_balance = <Balances<T>>::get(&origin_account);
+
+			ensure!(amount != 0, Error::<T>::AmountZero);
+			ensure!(origin_balance >= amount, Error::<T>::BalanceLow);
 
 			Self::make_transfer(&asset_id, &sender, &to, amount)?;
 
