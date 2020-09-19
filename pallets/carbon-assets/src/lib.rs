@@ -13,23 +13,21 @@ use sp_std::prelude::*;
 // mod tests;
 
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug)]
-pub struct Project<AccountId> {
+pub struct CarbonProject<AccountId> {
 	pub name: Vec<u8>,
 	pub max_supply: u64,
 	pub total_supply: u64,
 	pub status: u8,
 	pub owner: AccountId,
-	pub additional: Vec<u8>,
 }
 
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug)]
-pub struct Asset<Hash> {
+pub struct CarbonAsset<Hash> {
 	pub project_id: Hash,
 	pub symbol: Vec<u8>,
 	pub initial_supply: u64,
 	pub total_supply: u64,
 	pub status: u8,
-	pub additional: Vec<u8>,
 }
 
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug)]
@@ -54,9 +52,10 @@ pub trait Trait: frame_system::Trait {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as CarbonAssets {
-		// pub Issuers get(fn issuers): map hasher(blake2_128_concat) T::AccountId => Issuer;
-		pub Projects get(fn get_project) : map hasher(identity) T::Hash=> Option<Project<T::AccountId>>;
-		pub Assets get(fn get_asset): map hasher(identity) T::Hash =>  Option<Asset< T::Hash>>;
+		pub ProjectAdditionals: map hasher(identity) T::Hash => Vec<u8>;
+		pub Projects get(fn get_project) : map hasher(identity) T::Hash => Option<CarbonProject<T::AccountId>>;
+		pub AssetAdditionals: map hasher(identity) T::Hash => Vec<u8>;
+		pub Assets get(fn get_asset): map hasher(identity) T::Hash =>  Option<CarbonAsset< T::Hash>>;
 		pub Issues get(fn get_issue): map hasher(identity) T::Hash =>  Option<IssueInfo<T::Hash>>;
 		pub Burns get(fn get_burn): map hasher(identity) T::Hash =>  Option<BurnInfo<T::Hash>>;
 		pub Balances get(fn get_balance): map hasher(blake2_128_concat) (T::Hash, T::AccountId) => u64;
@@ -98,16 +97,16 @@ decl_module! {
 		pub fn submit_project(origin, name: Vec<u8>, max_supply: u64, additional: Vec<u8>) -> dispatch::DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			let project = Project {
+			let project = CarbonProject {
 				name: name.clone(),
 				max_supply,
 				total_supply: 0,
 				status: 0,
 				owner: sender.clone(),
-				additional,
 			};
 			let project_id = T::Hashing::hash_of(&project);
 			<Projects<T>>::insert(project_id, project);
+			<ProjectAdditionals<T>>::insert(project_id, additional);
 
 			Self::deposit_event(RawEvent::ProjectSubmited(project_id, sender, name));
 
@@ -131,16 +130,16 @@ decl_module! {
 		pub fn submit_asset(origin, project_id: T::Hash, symbol: Vec<u8>, initial_supply: u64, additional: Vec<u8>) -> dispatch::DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			let asset = Asset {
+			let asset = CarbonAsset {
 				project_id,
 				symbol: symbol.clone(),
 				initial_supply,
 				total_supply: 0,
 				status: 0,
-				additional,
 			};
 			let asset_id = T::Hashing::hash_of(&asset);
 			<Assets<T>>::insert(asset_id, asset);
+			<AssetAdditionals<T>>::insert(asset_id, additional);
 
 			Self::deposit_event(RawEvent::AssetSubmited(project_id, asset_id, sender, symbol));
 

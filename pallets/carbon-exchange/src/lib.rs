@@ -50,8 +50,9 @@ decl_event!(
 		Hash = <T as frame_system::Trait>::Hash,
 	{
 		NewOrder(Hash, AccountId),
-		NewDeal(Hash, AccountId, u64, u64),
-		OrderCanceled(Hash, AccountId),
+		NewDeal(Hash, AccountId, AccountId, u64, u64),
+		OrderFinished(Hash),
+		OrderCanceled(Hash),
 	}
 );
 
@@ -114,9 +115,10 @@ decl_module! {
 				<Orders<T>>::insert(order_id, order);
 			} else {
 				<Orders<T>>::remove(order_id);
+				Self::deposit_event(RawEvent::OrderFinished(order_id));
 			}
 
-			Self::deposit_event(RawEvent::NewDeal(order_id, taker, price, amount));
+			Self::deposit_event(RawEvent::NewDeal(order_id, maker, taker, price, amount));
 
 			Ok(())
 		}
@@ -129,7 +131,7 @@ decl_module! {
 			ensure!(order.maker == sender, Error::<T>::PermissionDenied);
 			<Orders<T>>::remove(order_id);
 
-			Self::deposit_event(RawEvent::OrderCanceled(order_id, sender));
+			Self::deposit_event(RawEvent::OrderCanceled(order_id));
 			Ok(())
 		}
 	}
