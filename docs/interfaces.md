@@ -138,11 +138,12 @@ await api.query['carbonExchange']['orders'](orderId)
 GET /carbon_projects
 
 参数:
-    - owner: 所有者账户地址
-    - approved: 是否通过审核，0或1, 默认: 全部
-    - reverse: 是否按时间逆序排列, 0或1, 默认: 0
-    - offset
-    - limit
+
+- owner: 所有者账户地址
+- approved: 是否通过审核，0或1, 默认: 全部
+ - reverse: 是否按时间逆序排列, 0或1, 默认: 0
+- offset
+- limit
 
 返回：
 ```
@@ -177,11 +178,12 @@ GET /carbon_projects
 GET /carbon_assets
 
 参数:
-    - owner: 所有者账户地址
-    - approved: 是否通过审核，0或1, 默认:: 全部
-    - reverse: 是否按时间逆序排列, 0或1, 默认: 0
-    - offset
-    - limit
+
+- owner: 所有者账户地址
+- approved: 是否通过审核，0或1, 默认:: 全部
+ - reverse: 是否按时间逆序排列, 0或1, 默认: 0
+- offset
+ - limit
 
 返回：
 ```
@@ -208,11 +210,12 @@ GET /carbon_assets
 GET /carbon_orders
 
 参数:
-    - owner: 所有者账户地址
-    - closed: 是否全部交易完成，0或1, 默认: 全部
-    - reverse: 是否按时间逆序排列, 0或1, 默认: 0
-    - offset
-    - limit
+
+- owner: 所有者账户地址
+- closed: 是否全部交易完成，0或1, 默认: 全部
+- reverse: 是否按时间逆序排列, 0或1, 默认: 0
+- offset
+- limit
 
 ```
 {
@@ -237,10 +240,11 @@ GET /carbon_orders
 GET /carbon_deals
 
 参数:
-    - owner: 所有者账户地址
-    - reverse: 是否按时间逆序排列, 0或1, 默认: 0
-    - offset
-    - limit
+
+- owner: 所有者账户地址
+ - reverse: 是否按时间逆序排列, 0或1, 默认: 0
+- offset
+- limit
 
 ```
 {
@@ -268,7 +272,8 @@ GET /carbon_deals
 GET /carbon_deals
 
 参数:
-    - account: 账户地址
+
+ - account: 账户地址
 
 返回:
 ```
