@@ -118,7 +118,7 @@ async function queryStandardBalance(api: ApiPromise, moneyId: string, address: s
     console.log(`queryStandardBalance: (${moneyId}, ${address}) => ${balance.toHuman()}`)
 }
 
-async function makeOrder(api: ApiPromise, sender: KeyringPair, assetId: string, moneyId: number, price: string, amount: string, direction: number) {
+async function makeOrder(api: ApiPromise, sender: KeyringPair, assetId: string, moneyId: string, price: string, amount: string, direction: number) {
     const tx = api.tx['carbonExchange']['makeOrder'](assetId, moneyId, price, amount, direction)
     await submitTx('makeOrder', tx, sender)
 }
@@ -223,13 +223,13 @@ async function main() {
     // await approveBurn(api, alice, burnId)
 
     // await issueStandardAsset(api, jack, 'USTE', 'ECO2 backed USD coin', 8, '100000000000000000', '100000000000000')
-    const moneyId = '0xb2514c5e056cdf38fa3708917c4b04d85363c8186884cb7a28d0456d8d4d49b6'
+    const moneyId = '0x460a321af0d1b29e4948837d550780aa7af5e2722b40782c0b4fc54f51e6a799'
     // await queryStandardAsset(api, moneyId)
     // await queryStandardBalance(api, moneyId, jack.address)
     // await transferStandardAsset(api, jack, moneyId, alice.address, '60000000')
 
     // await makeOrder(api, alice, assetId, moneyId, '50', '2000000', 0);
-    const orderId = '0x4965c24e63492f51a65aa4819d203187b4d4f01eab1ccde18aa888859b54e928'
+    const orderId = '0x18ca494a53b5926c668ea580bb7875a28931df03a27107bb5305ddeda9d4e8c1'
     // await queryOrder(api, orderId)
 
     // await takeOrder(api, jack, orderId, '1000')

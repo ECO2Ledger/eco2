@@ -9,6 +9,7 @@ const db = {
     carbonBurns: new Datastore({ filename: './.data/carbon_burns.db', autoload }),
     orders: new Datastore({ filename: './.data/orders.db', autoload }),
     deals: new Datastore({ filename: './.data/deals.db', autoload }),
+    userDeals: new Datastore({ filename: './.data/user_deals.db', autoload }),
     standardAssets: new Datastore({ filename: './.data/standard_assets.db', autoload }),
     potentialBalances: new Datastore({ filename: './.data/potential_balances.db', autoload }),
 }
@@ -147,10 +148,16 @@ const eco2EventHandlers = {
         const taker = data[2].toString()
         const price = data[3].toString()
         const amount = data[4].toString()
-        const timestamp = data[5].toNumber()
-        const doc = { orderId, maker, taker, price, amount, timestamp }
+        const direction = data[5].toNumber()
+        const timestamp = data[6].toNumber()
+        const doc = { orderId, maker, taker, price, amount, timestamp, direction: 1 - direction }
         console.log('NewDeal', doc)
         db.deals.insert(doc, dbErrorHandler)
+
+        const makerDealDoc = { orderId, owner: maker, price, amount, timestamp, direction }
+        const takerDealDoc = { orderId, owner: taker, price, amount, timestamp, direction: 1 - direction }
+        db.userDeals.insert(makerDealDoc, dbErrorHandler)
+        db.userDeals.insert(takerDealDoc, dbErrorHandler)
     },
 
     'carbonExchange:OrderCanceled': (_, data) => {
@@ -368,10 +375,12 @@ function startServer() {
 
     fastify.get('/carbon_deals', (request, reply) => {
         let filter: { owner?: string } = {}
+        let collection = db.deals
         if (request.query.owner) {
             filter.owner = request.query.owner
+            collection = db.userDeals
         }
-        findWithComplexCondition(db.deals, request, filter, (err, result) => {
+        findWithComplexCondition(collection, request, filter, (err, result) => {
             err ? fail(reply, err) : ok(reply, result)
         })
     })
@@ -444,8 +453,11 @@ async function initDB() {
     await ensureIndexAsync(db.orders, { fieldName: 'timestamp' })
 
     await loadDatabaseAsync(db.deals)
-    await ensureIndexAsync(db.deals, { fieldName: 'owner' })
     await ensureIndexAsync(db.deals, { fieldName: 'timestamp' })
+
+    await loadDatabaseAsync(db.userDeals)
+    await ensureIndexAsync(db.userDeals, { fieldName: 'owner' })
+    await ensureIndexAsync(db.userDeals, { fieldName: 'timestamp' })
 
     await loadDatabaseAsync(db.standardAssets)
     await ensureIndexAsync(db.standardAssets, { fieldName: 'assetId', unique: true })
