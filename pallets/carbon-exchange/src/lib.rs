@@ -51,7 +51,7 @@ decl_event!(
 		Moment = <T as pallet_timestamp::Trait>::Moment,
 	{
 		NewOrder(Hash, AccountId, Moment),
-		NewDeal(Hash, AccountId, AccountId, u64, u64, Moment),
+		NewDeal(Hash, AccountId, AccountId, u64, u64, u8, Moment),
 		OrderFinished(Hash),
 		OrderCanceled(Hash),
 	}
@@ -117,6 +117,8 @@ decl_module! {
 
 			order.left_amount -= amount;
 
+			let direction = order.direction;
+
 			if order.left_amount > 0 {
 				<Orders<T>>::insert(order_id, order);
 			} else {
@@ -125,7 +127,7 @@ decl_module! {
 			}
 
 			let now = <pallet_timestamp::Module<T>>::get();
-			Self::deposit_event(RawEvent::NewDeal(order_id, maker, taker, price, amount, now));
+			Self::deposit_event(RawEvent::NewDeal(order_id, maker, taker, price, amount, direction, now));
 
 			Ok(())
 		}
