@@ -4,6 +4,7 @@ import { KeyringPair } from '@polkadot/keyring/types'
 import { cryptoWaitReady } from '@polkadot/util-crypto'
 
 const typeRegistry = new TypeRegistry()
+let gApi: ApiPromise
 
 function toUtf8(data: Uint8Array) {
     return Buffer.from(data).toString('utf8')
@@ -17,6 +18,11 @@ async function submitTx(label: string, tx, sender) {
             console.log(`Transaction included at blockHash ${result.status.asInBlock}`)
             result.events.forEach(({ event: { data, method, section }, phase }) => {
                 console.log('\t', phase.toString(), `: ${section}.${method}`, data.toString());
+                if (method === 'ExtrinsicFailed') {
+                    const decoded = gApi.registry.findMetaError(data[0].asModule);
+                    const { documentation, name, section } = decoded
+                    console.log(`\t\tError: ${section}.${name}: ${documentation.join(',')}`)
+                }
             });
         } else if (result.status.isFinalized) {
             console.log(`Transaction finalized at blockHash ${result.status.asFinalized}`)
@@ -25,9 +31,58 @@ async function submitTx(label: string, tx, sender) {
     })
 }
 
-async function queryBalance(api: ApiPromise, address: string) {
-    const account = await api.query.system.account(address)
-    console.log('balance:', address, account.data.free.toString())
+async function voteProposal(api: ApiPromise, sender: KeyringPair, id: string, index: number, approve: boolean) {
+    const tx = api.tx['carbonCommittee']['vote'](id, index, approve)
+    await submitTx('voteProposal', tx, sender)
+}
+
+async function closeProposal(api: ApiPromise, sender: KeyringPair, id: string, index: number) {
+    const maxWeight = 1000000000
+    const lengthBound = 1000
+    const tx = api.tx['carbonCommittee']['close'](id, index, maxWeight, lengthBound)
+    await submitTx('closeProposal', tx, sender)
+}
+
+async function queryCarbonCommitteeMembers(api: ApiPromise) {
+    const members = await api.query['carbonCommittee']['members']()
+    console.log('carbonCommittee members:', members.toJSON())
+}
+
+async function queryProposalVoting(api: ApiPromise, id: string) {
+    const voting = await api.query['carbonCommittee']['voting'](id)
+    console.log('queryProposalVoting:', voting.toJSON())
+}
+
+async function proposeProject(api: ApiPromise, sender: KeyringPair, projectId: string) {
+    const proposal = api.tx['carbonAssets']['approveProject'](projectId)
+    const threshold = 2
+    const lengthBound = 1000
+    const tx = api.tx['carbonCommittee']['propose'](threshold, proposal, lengthBound)
+    await submitTx('proposeProject', tx, sender)
+}
+
+async function proposeAsset(api: ApiPromise, sender: KeyringPair, projectId: string) {
+    const proposal = api.tx['carbonAssets']['approveAsset'](projectId)
+    const threshold = 2
+    const lengthBound = 1000
+    const tx = api.tx['carbonCommittee']['propose'](threshold, proposal, lengthBound)
+    await submitTx('proposeAsset', tx, sender)
+}
+
+async function proposeIssue(api: ApiPromise, sender: KeyringPair, projectId: string) {
+    const proposal = api.tx['carbonAssets']['approveIssue'](projectId)
+    const threshold = 2
+    const lengthBound = 1000
+    const tx = api.tx['carbonCommittee']['propose'](threshold, proposal, lengthBound)
+    await submitTx('proposeIssue', tx, sender)
+}
+
+async function proposeBurn(api: ApiPromise, sender: KeyringPair, projectId: string) {
+    const proposal = api.tx['carbonAssets']['approveBurn'](projectId)
+    const threshold = 2
+    const lengthBound = 1000
+    const tx = api.tx['carbonCommittee']['propose'](threshold, proposal, lengthBound)
+    await submitTx('proposeBurn', tx, sender)
 }
 
 async function transfer(api: ApiPromise, sender: KeyringPair, to: string, amount: string) {
@@ -43,11 +98,6 @@ async function queryProject(api: ApiPromise, projectId: string) {
     const project = await api.query['carbonAssets']['projects'](projectId)
     const additionals = await api.query['carbonAssets']['projectAdditionals'](projectId)
     console.log('queryProject:', project.toJSON(), JSON.parse(toUtf8(additionals.toU8a(true))))
-}
-
-async function approveProject(api: ApiPromise, sender: KeyringPair, projectId: string) {
-    const tx = api.tx['carbonAssets']['approveProject'](projectId)
-    await submitTx('approveProject', tx, sender)
 }
 
 async function submitAsset(api: ApiPromise, sender: KeyringPair, projectId: string, vintage: string, initialSupply: string, additional: {}) {
@@ -190,26 +240,46 @@ async function main() {
         }
     }
     const api = await ApiPromise.create({ provider: wsProvider, types })
+    gApi = api
     const keyring = new Keyring({ type: 'sr25519' })
     const alice = keyring.addFromUri('//Alice', { name: 'Alice default' })
     const jack = keyring.addFromUri('entire material egg meadow latin bargain dutch coral blood melt acoustic thought')
 
+    // CarbonCommittee members
+    const bob = keyring.addFromUri('//Bob', { name: 'Alice default' })
+    const charlie = keyring.addFromUri('//Charlie', { name: 'Charlie default' })
+    const dave = keyring.addFromUri('//Dave', { name: 'Dave default' })
+
     await api.isReady
+
+    // await queryCarbonCommitteeMembers(api)
 
     // await queryBalance(api, alice.address)
     // await transfer(api, alice, jack.address, '200000000000')
+    // await transfer(api, alice, bob.address, '200000000000')
+    // await transfer(api, alice, charlie.address, '200000000000')
+    // await transfer(api, alice, dave.address, '200000000000')
 
     // await submitProject(api, alice, 'ABC', '10000000', { registerDate: '2020-09-20', lifetime: '2020-2025' })
 
     const projectId = '0x58965ddaa7cdd74c23eba6f0141b1ef8128e9d0a0145073c51306c1d7679b676'
     // await queryProject(api, projectId)
-    // await approveProject(api, alice, projectId)
+    // await proposeProject(api, bob, projectId)
+
+    let proposalId = '0x384fd290e2a083b6df28080691af71dcfba52a207f54e20c5de8377c064d68f3'
+    // await voteProposal(api, charlie, proposalId, 0, true)
+    // await queryProposalVoting(api, proposalId)
+    // await closeProposal(api, charlie, proposalId, 0)
 
     // await submitAsset(api, alice, projectId, '2020', '2000000', { remark: 'register asset remark' })
     const assetId = '0x75b8a626a38d10a72799709e28d96da122cc914cc7df8f0d3a3c364bb6c29c86'
     // await queryAsset(api, assetId)
+    // await proposeAsset(api, bob, assetId)
+    proposalId = '0x393e672c311f7f594ee5d6f57687de94eea56634bc481c5751fe11563f21d92c'
+    // await voteProposal(api, charlie, proposalId, 1, true)
+    // await queryProposalVoting(api, proposalId)
+    // await closeProposal(api, charlie, proposalId, 1)
 
-    // await approveAsset(api, alice, assetId)
     // await queryCarbonBalance(api, assetId, alice.address)
 
     // await transferCarbonAsset(api, alice, assetId, jack.address, '50000')

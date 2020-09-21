@@ -1,17 +1,40 @@
 import { ApiPromise, WsProvider } from '@polkadot/api'
 
+let gApi: ApiPromise
+
+const { promisify } = require('util')
 const Datastore = require('nedb')
 const autoload = false;
 const db = {
     carbonProjects: new Datastore({ filename: './.data/carbon_projects.db', autoload }),
     carbonAssets: new Datastore({ filename: './.data/carbon_assets.db', autoload }),
-    carbonIssues: new Datastore({ filename: './.data/carbon_issues.db', autoload }),
-    carbonBurns: new Datastore({ filename: './.data/carbon_burns.db', autoload }),
+    // carbonIssues: new Datastore({ filename: './.data/carbon_issues.db', autoload }),
+    // carbonBurns: new Datastore({ filename: './.data/carbon_burns.db', autoload }),
     orders: new Datastore({ filename: './.data/orders.db', autoload }),
     deals: new Datastore({ filename: './.data/deals.db', autoload }),
     userDeals: new Datastore({ filename: './.data/user_deals.db', autoload }),
     standardAssets: new Datastore({ filename: './.data/standard_assets.db', autoload }),
     potentialBalances: new Datastore({ filename: './.data/potential_balances.db', autoload }),
+    carbonProposals: new Datastore({ filename: './.data/carbon_proposals.db', autoload }),
+
+    findOneAsync: (collection) => {
+        return promisify(collection.findOne.bind(collection))
+    },
+    findAsync: (collection) => {
+        return promisify(collection.find.bind(collection))
+    },
+    insertAsync: (collection) => {
+        return promisify(collection.insert.bind(collection))
+    },
+    updateAsync: (collection) => {
+        return promisify(collection.update.bind(collection))
+    },
+    countAsync: (collection) => {
+        return promisify(collection.count.bind(collection))
+    },
+    removeAsync: (collection) => {
+        return promisify(collection.remove.bind(collection))
+    }
 }
 
 let lastBlockNumber = 0
@@ -33,116 +56,170 @@ function saveLastBlockNumber(n) {
     fs.writeFileSync(lastBlockNumberFile, n.toString(), 'utf8')
 }
 
-function dbErrorHandler(err) {
-    if (err) {
-        console.log('db error:', err)
-    }
-}
-
 function constructPotentialBalanceDoc(account: string, assetId: string, type: 'carbon' | 'standard') {
     const key = [account.slice(0, 6), assetId.slice(0, 8)].join(':')
     return { key, account, assetId, type }
 }
 
 const eco2EventHandlers = {
-    'carbonAssets:ProjectSubmited': (_, data) => {
+    'carbonAssets:ProjectSubmited': async (_, data) => {
         const projectId = data[0].toString()
         const owner = data[1].toString()
         const symbol = Buffer.from(data[2]).toString('utf8')
         const timestamp = data[3].toNumber()
         const doc = { projectId, owner, symbol, approved: 0, timestamp }
         console.log('ProjectSubmited', doc)
-        db.carbonProjects.insert(doc, dbErrorHandler)
+        await db.insertAsync(db.carbonProjects)(doc)
+
+        const result = await gApi.query['carbonAssets']['projects'](projectId)
+        if (!result.isEmpty) {
+            const project = result.toJSON()
+            console.log('project:', project)
+            if (project['status'] === 1) {
+                console.log('\tSkip the already approved proposal')
+                return
+            }
+            console.log('\tAdd new project proposal doc')
+            await db.insertAsync(db.carbonProposals)({
+                title: `Proposal for new project(${symbol})`,
+                type: 'project',
+                proposalId: '',
+                key: projectId,
+                timestamp,
+            })
+        }
     },
 
-    'carbonAssets:ProjectApproved': (_, data) => {
+    'carbonAssets:ProjectApproved': async (_, data) => {
         const projectId = data[0].toString()
         console.log('ProjectApproved', projectId)
-        db.carbonProjects.update({ projectId }, { $set: { approved: 1 } }, {}, dbErrorHandler)
+        await db.updateAsync(db.carbonProjects)({ projectId }, { $set: { approved: 1 } }, {})
     },
 
-    'carbonAssets:AssetSubmited': (_, data) => {
+    'carbonAssets:AssetSubmited': async (_, data) => {
         const projectId = data[0].toString()
         const assetId = data[1].toString()
-        const owner = data[2].toString()
-        const timestamp = data[3].toNumber()
-        const doc = { projectId, assetId, owner, approved: 0, timestamp }
+        const symbol = Buffer.from(data[2]).toString('utf8')
+        const vintage = Buffer.from(data[3]).toString('utf8')
+        const owner = data[4].toString()
+        const timestamp = data[5].toNumber()
+        const doc = { projectId, assetId, owner, approved: 0, timestamp, symbol, vintage }
         console.log('AssetSubmited', doc)
-        db.carbonAssets.insert(doc, dbErrorHandler)
+        await db.insertAsync(db.carbonAssets)(doc)
+
+        const result = await gApi.query['carbonAssets']['assets'](assetId)
+        if (!result.isEmpty) {
+            const asset = result.toJSON()
+            console.log('\tThe asset is', asset)
+            if (asset['status'] === 1) {
+                console.log('\tSkip the already approved proposal')
+                return
+            }
+            console.log('\tAdd new asset proposal doc')
+            await db.insertAsync(db.carbonProposals)({
+                title: `Proposal for new asset(${symbol}.${vintage})`,
+                type: 'asset',
+                proposalId: '',
+                key: assetId,
+                timestamp,
+            })
+        }
     },
 
-    'carbonAssets:AssetApproved': (_, data) => {
+    'carbonAssets:AssetApproved': async (_, data) => {
         const assetId = data[0].toString()
         console.log('AssetApproved', assetId)
-        db.carbonAssets.update({ assetId }, { $set: { approved: 1 } }, {}, dbErrorHandler)
-        db.carbonAssets.find({ assetId }, (err, doc) => {
-            if (err) {
-                console.log('failed to find carbon asset:', err)
-                return
-            }
-            if (!doc || !doc.length) {
-                console.log('invalid query result:', doc)
-                return
-            }
-            db.potentialBalances.insert(constructPotentialBalanceDoc(doc[0].owner, assetId, 'carbon'), dbErrorHandler)
-        })
+        await db.updateAsync(db.carbonAssets)({ assetId }, { $set: { approved: 1 } }, {})
+        const asset = await db.findOneAsync(db.carbonAssets)({ assetId })
+        await db.insertAsync(db.potentialBalances)(constructPotentialBalanceDoc(asset.owner, assetId, 'carbon'))
     },
 
-    'carbonAssets:IssueSubmited': (_, data) => {
+    'carbonAssets:IssueSubmited': async (_, data) => {
         const issueId = data[0].toString()
         const assetId = data[1].toString()
         const owner = data[2].toString()
         const amount = data[3].toString()
         const timestamp = data[4].toNumber()
-        const doc = { issueId, assetId, owner, amount, approved: 0, timestamp }
-        console.log('IssueSubmited', doc)
-        db.carbonIssues.insert(doc, dbErrorHandler)
+        console.log('carbonAssets:IssueSubmited', issueId, assetId, owner, amount, timestamp)
+        const asset = await db.findOneAsync(db.carbonAssets)({ assetId })
+
+        const result = await gApi.query['carbonAssets']['issues'](issueId)
+        if (!result.isEmpty) {
+            const issue = result.toJSON()
+            if (issue['status'] === 1) {
+                console.log('\tSkip the already approved proposal')
+                return
+            }
+            console.log('\tAdd new issue proposal doc')
+            await db.insertAsync(db.carbonProposals)({
+                title: `Proposal for new issuing asset(${asset.symbol}.${asset.vintage})`,
+                type: 'issue',
+                proposalId: '',
+                key: issueId,
+                timestamp,
+            })
+        }
     },
 
-    'carbonAssets:IssueApproved': (_, data) => {
-        const issueId = data[0].toString()
-        console.log('IssueApproved', issueId)
-        db.carbonIssues.update({ issueId }, { $set: { approved: 1 } }, {}, dbErrorHandler)
-    },
+    // 'carbonAssets:IssueApproved': async (_, data) => {
+    //     const issueId = data[0].toString()
+    //     console.log('IssueApproved', issueId)
+    //     db.carbonIssues.update({ issueId }, { $set: { approved: 1 } }, {}, dbErrorHandler)
+    // },
 
-    'carbonAssets:BurnSubmited': (_, data) => {
+    'carbonAssets:BurnSubmited': async (_, data) => {
         const burnId = data[0].toString()
         const assetId = data[1].toString()
         const owner = data[2].toString()
         const amount = data[3].toString()
         const timestamp = data[4].toNumber()
-        const doc = { burnId, assetId, owner, amount, approved: 0, timestamp }
-        console.log('BurnSubmited', doc)
-        db.carbonBurns.insert(doc, dbErrorHandler)
+        console.log('BurnSubmited', burnId, assetId, owner, amount, timestamp)
+        const asset = await db.findOneAsync(db.carbonAssets)({ assetId })
+        const result = await gApi.query['carbonAssets']['burns'](burnId)
+        if (!result.isEmpty) {
+            const burn = result.toJSON()
+            if (burn['status'] === 1) {
+                console.log('\tSkip the already approved proposal')
+                return
+            }
+            console.log('\tAdd new burn proposal doc')
+            await db.insertAsync(db.carbonProjects)({
+                title: `Proposal for burning asset(${asset.symbol}.${asset.vintage})`,
+                type: 'burn',
+                proposalId: '',
+                key: burnId,
+                timestamp,
+            })
+        }
     },
 
-    'carbonAssets:BurnApproved': (_, data) => {
-        const burnId = data[0].toString()
-        console.log('BurnApproved', burnId)
-        db.carbonIssues.update({ burnId }, { $set: { approved: 1 } }, {}, dbErrorHandler)
-    },
+    // 'carbonAssets:BurnApproved': async (_, data) => {
+    //     const burnId = data[0].toString()
+    //     console.log('BurnApproved', burnId)
+    //     db.carbonIssues.update({ burnId }, { $set: { approved: 1 } }, {}, dbErrorHandler)
+    // },
 
-    'carbonAssets:Transferred': (_, data) => {
+    'carbonAssets:Transferred': async (_, data) => {
         const assetId = data[0].toString()
         const from = data[1].toString()
         const to = data[2].toString()
         const amount = data[3].toString()
         const timestamp = data[4].toNumber()
         console.log('carbonAssets:Transferred', assetId, from, to, amount, timestamp)
-        db.potentialBalances.insert(constructPotentialBalanceDoc(to, assetId, 'carbon'), dbErrorHandler)
+        await db.insertAsync(db.potentialBalances)(constructPotentialBalanceDoc(to, assetId, 'carbon'))
     },
 
-    'carbonExchange:NewOrder': (_, data) => {
+    'carbonExchange:NewOrder': async (_, data) => {
         const orderId = data[0].toString()
         const owner = data[1].toString()
         const timestamp = data[2].toNumber()
         const doc = { orderId, owner, closed: 0, timestamp }
 
         console.log('NewOrder', doc)
-        db.orders.insert(doc, dbErrorHandler)
+        await db.insertAsync(db.orders)(doc)
     },
 
-    'carbonExchange:NewDeal': (_, data) => {
+    'carbonExchange:NewDeal': async (_, data) => {
         const orderId = data[0].toString()
         const maker = data[1].toString()
         const taker = data[2].toString()
@@ -152,27 +229,27 @@ const eco2EventHandlers = {
         const timestamp = data[6].toNumber()
         const doc = { orderId, maker, taker, price, amount, timestamp, direction: 1 - direction }
         console.log('NewDeal', doc)
-        db.deals.insert(doc, dbErrorHandler)
+        await db.insertAsync(db.deals)(doc)
 
         const makerDealDoc = { orderId, owner: maker, price, amount, timestamp, direction }
         const takerDealDoc = { orderId, owner: taker, price, amount, timestamp, direction: 1 - direction }
-        db.userDeals.insert(makerDealDoc, dbErrorHandler)
-        db.userDeals.insert(takerDealDoc, dbErrorHandler)
+        await db.insertAsync(db.userDeals)(makerDealDoc)
+        await db.insertAsync(db.userDeals)(takerDealDoc)
     },
 
-    'carbonExchange:OrderCanceled': (_, data) => {
+    'carbonExchange:OrderCanceled': async (_, data) => {
         const orderId = data[0].toString()
         console.log('OrderCanceled', orderId)
-        db.orders.update({ orderId }, { $set: { closed: 1 } }, {}, dbErrorHandler)
+        await db.updateAsync(db.orders)({ orderId }, { $set: { closed: 1 } }, {})
     },
 
-    'carbonExchange:OrderFinished': (_, data) => {
+    'carbonExchange:OrderFinished': async (_, data) => {
         const orderId = data[0].toString()
         console.log('OrderFinished', orderId)
-        db.orders.update({ orderId }, { $set: { closed: 1 } }, {}, dbErrorHandler)
+        await db.updateAsync(db.orders)({ orderId }, { $set: { closed: 1 } }, {})
     },
 
-    'standardAssets:NewAsset': (_, data) => {
+    'standardAssets:NewAsset': async (_, data) => {
         const assetId = data[0].toString()
         const symbol = Buffer.from(data[1]).toString('utf8')
         const owner = data[2].toString()
@@ -180,15 +257,51 @@ const eco2EventHandlers = {
         const timestamp = data[4].toNumber()
         const doc = { assetId, symbol, owner, timestamp }
         console.log('standardAssets:NewAsset', doc)
-        db.standardAssets.insert(doc, dbErrorHandler)
-        db.potentialBalances.insert(constructPotentialBalanceDoc(owner, assetId, 'standard'), dbErrorHandler)
+        await db.insertAsync(db.standardAssets)(doc)
+        await db.insertAsync(db.potentialBalances)(constructPotentialBalanceDoc(owner, assetId, 'standard'))
     },
 
-    'standardAssets:Transferred': (_, data) => {
+    'standardAssets:Transferred': async (_, data) => {
         const assetId = data[0].toString()
         const to = data[2].toString()
         console.log('standardAssets:Transferred', assetId, to)
-        db.potentialBalances.insert(constructPotentialBalanceDoc(to, assetId, 'standard'), dbErrorHandler)
+        await db.insertAsync(db.potentialBalances)(constructPotentialBalanceDoc(to, assetId, 'standard'))
+    },
+
+    'carbonCommittee:Proposed': async (_, data) => {
+        const proposalId = data[2].toString()
+        console.log('carbonCommittee:Proposed', proposalId)
+
+        const result = await gApi.query['carbonCommittee']['proposalOf'](proposalId)
+        if (result.isEmpty) return
+
+        let proposal = result.toJSON()
+        console.log('\tThe proposal is:', proposal)
+
+        let key: string
+        switch (proposal['callIndex']) {
+            case '0x0901':
+                key = proposal['args']['project_id']
+                break;
+            case '0x0903':
+                key = proposal['args']['asset_id']
+                break;
+            case '0x0905':
+                key = proposal['args']['issue_id']
+                break;
+            case '0x0907':
+                key = proposal['args']['burn_id']
+                break;
+            default:
+                console.log('\tUnexpected callIndex')
+        }
+        console.log(`\tUpdate proposal at ${key}: $set proposalId: ${proposalId}`)
+        await db.updateAsync(db.carbonProposals)({ key }, { $set: { proposalId } }, {})
+    },
+    'carbonCommittee:Closed': async (_, data) => {
+        const proposalId = data[0].toString()
+        console.log('carbonCommittee:Closed', proposalId)
+        await db.removeAsync(db.carbonProposals)({ proposalId }, {})
     },
 }
 
@@ -334,28 +447,34 @@ function startServer() {
         })
     })
 
-    fastify.get('/carbon_issues', (request, reply) => {
-        let filter: { owner?: string, approved?: number } = {}
-        if (request.query.owner) {
-            filter.owner = request.query.owner
-        }
-        if (request.query.approved) {
-            filter.approved = parseIntOr(request.query.approved, 1)
-        }
-        findWithComplexCondition(db.carbonIssues, request, filter, (err, result) => {
-            err ? fail(reply, err) : ok(reply, result)
-        })
-    })
+    // fastify.get('/carbon_issues', (request, reply) => {
+    //     let filter: { owner?: string, approved?: number } = {}
+    //     if (request.query.owner) {
+    //         filter.owner = request.query.owner
+    //     }
+    //     if (request.query.approved) {
+    //         filter.approved = parseIntOr(request.query.approved, 1)
+    //     }
+    //     findWithComplexCondition(db.carbonIssues, request, filter, (err, result) => {
+    //         err ? fail(reply, err) : ok(reply, result)
+    //     })
+    // })
 
-    fastify.get('/carbon_burns', (request, reply) => {
-        let filter: { owner?: string, approved?: number } = {}
-        if (request.query.owner) {
-            filter.owner = request.query.owner
-        }
-        if (request.query.approved) {
-            filter.approved = parseIntOr(request.query.approved, 1)
-        }
-        findWithComplexCondition(db.carbonBurns, request, filter, (err, result) => {
+    // fastify.get('/carbon_burns', (request, reply) => {
+    //     let filter: { owner?: string, approved?: number } = {}
+    //     if (request.query.owner) {
+    //         filter.owner = request.query.owner
+    //     }
+    //     if (request.query.approved) {
+    //         filter.approved = parseIntOr(request.query.approved, 1)
+    //     }
+    //     findWithComplexCondition(db.carbonBurns, request, filter, (err, result) => {
+    //         err ? fail(reply, err) : ok(reply, result)
+    //     })
+    // })
+
+    fastify.get('/carbon_proposals', (request, reply) => {
+        findWithComplexCondition(db.carbonProposals, request, {}, (err, result) => {
             err ? fail(reply, err) : ok(reply, result)
         })
     })
@@ -410,8 +529,6 @@ function startServer() {
     })
 }
 
-const { promisify } = require('util')
-
 function ensureIndexAsync(collection, params) {
     return promisify(collection.ensureIndex.bind(collection))(params)
 }
@@ -434,17 +551,21 @@ async function initDB() {
     await ensureIndexAsync(db.carbonAssets, { fieldName: 'approved' })
     await ensureIndexAsync(db.carbonAssets, { fieldName: 'timestamp' })
 
-    await loadDatabaseAsync(db.carbonIssues)
-    await ensureIndexAsync(db.carbonIssues, { fieldName: 'issueId', unique: true })
-    await ensureIndexAsync(db.carbonIssues, { fieldName: 'owner' })
-    await ensureIndexAsync(db.carbonIssues, { fieldName: 'approved' })
-    await ensureIndexAsync(db.carbonIssues, { fieldName: 'timestamp' })
+    // await loadDatabaseAsync(db.carbonIssues)
+    // await ensureIndexAsync(db.carbonIssues, { fieldName: 'issueId', unique: true })
+    // await ensureIndexAsync(db.carbonIssues, { fieldName: 'owner' })
+    // await ensureIndexAsync(db.carbonIssues, { fieldName: 'approved' })
+    // await ensureIndexAsync(db.carbonIssues, { fieldName: 'timestamp' })
 
-    await loadDatabaseAsync(db.carbonBurns)
-    await ensureIndexAsync(db.carbonBurns, { fieldName: 'burnId', unique: true })
-    await ensureIndexAsync(db.carbonBurns, { fieldName: 'owner' })
-    await ensureIndexAsync(db.carbonBurns, { fieldName: 'approved' })
-    await ensureIndexAsync(db.carbonBurns, { fieldName: 'timestamp' })
+    // await loadDatabaseAsync(db.carbonBurns)
+    // await ensureIndexAsync(db.carbonBurns, { fieldName: 'burnId', unique: true })
+    // await ensureIndexAsync(db.carbonBurns, { fieldName: 'owner' })
+    // await ensureIndexAsync(db.carbonBurns, { fieldName: 'approved' })
+    // await ensureIndexAsync(db.carbonBurns, { fieldName: 'timestamp' })
+
+    await loadDatabaseAsync(db.carbonProposals)
+    await ensureIndexAsync(db.carbonProposals, { fieldName: 'proposalId' })
+    await ensureIndexAsync(db.carbonProposals, { fieldName: 'timestamp' })
 
     await loadDatabaseAsync(db.orders)
     await ensureIndexAsync(db.orders, { fieldName: 'orderId', unique: true })
@@ -471,7 +592,55 @@ async function initDB() {
 
 async function main() {
     const wsProvider = new WsProvider('ws://127.0.0.1:9944')
-    const api = await ApiPromise.create({ provider: wsProvider })
+    const types = {
+        Address: 'AccountId',
+        LookupSource: 'AccountId',
+        CarbonProject: {
+            name: 'Vec<u8>',
+            max_supply: 'u64',
+            total_supply: 'u64',
+            status: 'u8',
+            owner: 'AccountId',
+        },
+        CarbonAsset: {
+            project_id: 'Hash',
+            symbol: 'Vec<u8>',
+            initial_supply: 'u64',
+            total_supply: 'u64',
+            status: 'u8',
+            additional: 'Vec<u8>',
+        },
+        IssueInfo: {
+            asset_id: 'Hash',
+            amount: 'u64',
+            status: 'u8',
+            additional: 'Vec<u8>',
+        },
+        BurnInfo: {
+            asset_id: 'Hash',
+            amount: 'u64',
+            status: 'u8',
+            additional: 'Vec<u8>',
+        },
+        OrderOf: {
+            asset_id: 'Hash',
+            money_id: 'Hash',
+            maker: 'AccountId',
+            status: 'u8',
+            amount: 'u64',
+            price: 'u64',
+            left_amount: 'u64',
+            direction: 'u8',
+        },
+        ECRC10: {
+            symbol: 'Vec<u8>',
+            name: 'Vec<u8>',
+            decimals: 'u8',
+            max_supply: 'u64',
+        }
+    }
+    const api = await ApiPromise.create({ provider: wsProvider, types })
+    gApi = api
 
     await api.isReady
 
