@@ -130,6 +130,84 @@ const orderId = '0x4965c24e63492f51a65aa4819d203187b4d4f01eab1ccde18aa888859b54e
 await api.query['carbonExchange']['orders'](orderId)
 ```
 
+### 1.14 发起提案
+
+```
+# 发起批准项目的提案
+async function proposeProject(api: ApiPromise, sender: KeyringPair, projectId: string) {
+    const proposal = api.tx['carbonAssets']['approveProject'](projectId)
+    const threshold = 2
+    const lengthBound = 1000
+    const tx = api.tx['carbonCommittee']['propose'](threshold, proposal, lengthBound)
+    await submitTx('proposeProject', tx, sender)
+}
+
+# 发起注册资产的提案
+async function proposeAsset(api: ApiPromise, sender: KeyringPair, projectId: string) {
+    const proposal = api.tx['carbonAssets']['approveAsset'](projectId)
+    const threshold = 2
+    const lengthBound = 1000
+    const tx = api.tx['carbonCommittee']['propose'](threshold, proposal, lengthBound)
+    await submitTx('proposeAsset', tx, sender)
+}
+
+# 发起增发资产的提案
+async function proposeIssue(api: ApiPromise, sender: KeyringPair, projectId: string) {
+    const proposal = api.tx['carbonAssets']['approveIssue'](projectId)
+    const threshold = 2
+    const lengthBound = 1000
+    const tx = api.tx['carbonCommittee']['propose'](threshold, proposal, lengthBound)
+    await submitTx('proposeIssue', tx, sender)
+}
+
+# 发起销毁资产的提案
+async function proposeBurn(api: ApiPromise, sender: KeyringPair, projectId: string) {
+    const proposal = api.tx['carbonAssets']['approveBurn'](projectId)
+    const threshold = 2
+    const lengthBound = 1000
+    const tx = api.tx['carbonCommittee']['propose'](threshold, proposal, lengthBound)
+    await submitTx('proposeBurn', tx, sender)
+}
+```
+
+### 1.15 提案投票
+
+```
+async function voteProposal(api: ApiPromise, sender: KeyringPair, id: string, index: number, approve: boolean) {
+    const tx = api.tx['carbonCommittee']['vote'](id, index, approve)
+    await submitTx('voteProposal', tx, sender)
+}
+```
+
+### 1.16 结束提案
+
+```
+async function closeProposal(api: ApiPromise, sender: KeyringPair, id: string, index: number) {
+    const maxWeight = 1000000000
+    const lengthBound = 1000
+    const tx = api.tx['carbonCommittee']['close'](id, index, maxWeight, lengthBound)
+    await submitTx('closeProposal', tx, sender)
+}
+```
+
+### 1.17 查询提案投票详情
+
+```
+async function queryProposalVoting(api: ApiPromise, id: string) {
+    const voting = await api.query['carbonCommittee']['voting'](id)
+    console.log('queryProposalVoting:', voting.toJSON())
+}
+```
+
+### 1.18 查询碳汇审查委员会成员
+
+```
+async function queryCarbonCommitteeMembers(api: ApiPromise) {
+    const members = await api.query['carbonCommittee']['members']()
+    console.log('carbonCommittee members:', members.toJSON())
+}
+```
+
 ## 2 列表查询接口
 
 ### 2.1 碳汇项目列表
@@ -290,3 +368,42 @@ GET /carbon_deals
     ]
 }
 ```
+
+### 2.6 碳汇审查委员会提案列表
+
+GET /carbon_proposals
+
+参数:
+
+ - reverse: 是否按时间逆序排列, 0或1, 默认: 0
+- offset
+- limit
+
+返回字段说明:
+
+- title: 提案的标题
+- type: 提案的类型, project | asset | issue | burn，分别表示注册碳汇项目、注册碳汇资产、增发碳汇资产、销毁碳汇资产
+- proposalId: 提案id，为空表示所有者刚提交了申请，委员会的成员还没有发起提案
+- key: 申请项的id，如project_id, asset_id, issue_id, burn_id
+
+返回:
+
+```
+{
+    "success": true, 
+    "result": {
+        "count": 1, 
+        "docs": [
+            {
+                "title": "Proposal for new project(ABC1)", 
+                "type": "project", 
+                "proposalId": "", 
+                "key": "0x03e250d57b6988580b81cb29a51ec93aa86cf2f45bbee2e587a032c088a6557c", 
+                "timestamp": 1600693218000, 
+                "_id": "FOal2faZ4L52yh9g"
+            }
+        ]
+    }
+}
+```
+
