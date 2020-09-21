@@ -10,6 +10,7 @@ use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_core::u32_trait::{_1, _2};
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::traits::{
 	BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, Saturating, Verify,
@@ -34,6 +35,7 @@ pub use frame_support::{
 	},
 	StorageValue,
 };
+pub use frame_system::{EnsureOneOf, EnsureRoot};
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
@@ -129,6 +131,12 @@ parameter_types! {
 	pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
 	pub const Version: RuntimeVersion = VERSION;
 }
+
+type MoreThanHalfCouncil = EnsureOneOf<
+	AccountId,
+	EnsureRoot<AccountId>,
+	pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>,
+>;
 
 // Configure FRAME pallets to include in runtime.
 
@@ -256,12 +264,58 @@ impl pallet_sudo::Trait for Runtime {
 	type Call = Call;
 }
 
+parameter_types! {
+	pub const CouncilMotionDuration: BlockNumber = 7 * DAYS;
+	pub const CouncilMaxProposals: u32 = 100;
+}
+
+type CouncilCollective = pallet_collective::Instance1;
+impl pallet_collective::Trait<CouncilCollective> for Runtime {
+	type Origin = Origin;
+	type Proposal = Call;
+	type Event = Event;
+	type MotionDuration = CouncilMotionDuration;
+	type MaxProposals = CouncilMaxProposals;
+	type WeightInfo = ();
+}
+
+impl pallet_membership::Trait<pallet_membership::Instance1> for Runtime {
+	type Event = Event;
+	type AddOrigin = MoreThanHalfCouncil;
+	type RemoveOrigin = MoreThanHalfCouncil;
+	type SwapOrigin = MoreThanHalfCouncil;
+	type ResetOrigin = MoreThanHalfCouncil;
+	type PrimeOrigin = MoreThanHalfCouncil;
+	type MembershipInitialized = CarbonCommittee;
+	type MembershipChanged = CarbonCommittee;
+}
+
+parameter_types! {
+	pub const CarbonMotionDuration: BlockNumber = 7 * DAYS;
+	pub const CarbonMaxProposals: u32 = 100;
+}
+
+type CarbonCollective = pallet_collective::Instance2;
+impl pallet_collective::Trait<CarbonCollective> for Runtime {
+	type Origin = Origin;
+	type Proposal = Call;
+	type Event = Event;
+	type MotionDuration = CarbonMotionDuration;
+	type MaxProposals = CarbonMaxProposals;
+	type WeightInfo = ();
+}
+
 impl pallet_standard_assets::Trait for Runtime {
 	type Event = Event;
 }
 
 impl pallet_carbon_assets::Trait for Runtime {
 	type Event = Event;
+	type ApproveOrigin = EnsureOneOf<
+		AccountId,
+		EnsureRoot<AccountId>,
+		pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CarbonCollective>,
+	>;
 }
 
 impl pallet_carbon_exchange::Trait for Runtime {
@@ -283,6 +337,9 @@ construct_runtime!(
 		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
 		TransactionPayment: pallet_transaction_payment::{Module, Storage},
 		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
+		Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+		CarbonCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+		CarbonMembership: pallet_membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
 
 		// custom pallets in eco2
 		CarbonAssets: pallet_carbon_assets::{Module, Call, Storage, Event<T>},

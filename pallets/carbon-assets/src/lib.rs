@@ -2,7 +2,8 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, traits::Get,
+	decl_error, decl_event, decl_module, decl_storage, dispatch, ensure,
+	traits::{EnsureOrigin, Get},
 };
 use frame_system::ensure_signed;
 use sp_runtime::{traits::Hash, DispatchResult, RuntimeDebug};
@@ -50,6 +51,7 @@ pub struct BurnInfo<Hash> {
 
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+	type ApproveOrigin: EnsureOrigin<Self::Origin>;
 }
 
 decl_storage! {
@@ -75,8 +77,8 @@ decl_event!(
 		ProjectSubmited(Hash, AccountId, Vec<u8>, Moment),
 		/// The project was approved. \[project_id\]
 		ProjectApproved(Hash),
-		/// Some assets was submitted. \[project_id, asset_id, owner, timestamp\]
-		AssetSubmited(Hash, Hash, AccountId, Moment),
+		/// Some assets was submitted. \[project_id, asset_id, symbol, vintage, owner, timestamp\]
+		AssetSubmited(Hash, Hash, Vec<u8>, Vec<u8>, AccountId, Moment),
 		/// The asset was approved. \[asset_id\]
 		AssetApproved(Hash),
 		/// Asset issue was submitted. \[issue_id, asset_id, owner, amount, timestamp\]
@@ -136,7 +138,7 @@ decl_module! {
 
 		#[weight = 10_000 + T::DbWeight::get().writes(1)]
 		pub fn approve_project(origin, project_id: T::Hash) -> dispatch::DispatchResult {
-			let _ = ensure_signed(origin)?;
+			T::ApproveOrigin::ensure_origin(origin)?;
 
 			let mut project = Self::get_project(project_id).ok_or(Error::<T>::InvalidIndex)?;
 			ensure!(project.status == 0, Error::<T>::AlreadyApproved);
@@ -170,19 +172,20 @@ decl_module! {
 			<AssetAdditionals<T>>::insert(asset_id, additional);
 
 			let now = <pallet_timestamp::Module<T>>::get();
-			Self::deposit_event(RawEvent::AssetSubmited(project_id, asset_id, sender, now));
+			Self::deposit_event(RawEvent::AssetSubmited(project_id, asset_id, project.symbol, vintage, sender, now));
 
 			Ok(())
 		}
 
 		#[weight = 10_000 + T::DbWeight::get().writes(1)]
 		pub fn approve_asset(origin, asset_id: T::Hash) -> dispatch::DispatchResult {
-			let sender = ensure_signed(origin)?;
+			T::ApproveOrigin::ensure_origin(origin)?;
 
 			let mut asset = Self::get_asset(asset_id).ok_or(Error::<T>::InvalidIndex)?;
 			ensure!(asset.status == 0, Error::<T>::AlreadyApproved);
 
 			let mut project = Self::get_project(asset.project_id).ok_or(Error::<T>::InvalidIndex)?;
+			let owner = project.owner.clone();
 
 			asset.status = 1;
 			asset.total_supply = asset.initial_supply;
@@ -191,7 +194,7 @@ decl_module! {
 
 			<Assets<T>>::insert(asset_id, &asset);
 
-			<Balances<T>>::insert((asset_id, sender), asset.initial_supply);
+			<Balances<T>>::insert((asset_id, owner), asset.initial_supply);
 
 			Self::deposit_event(RawEvent::AssetApproved(asset_id));
 
@@ -224,7 +227,7 @@ decl_module! {
 
 		#[weight = 10_000 + T::DbWeight::get().writes(1)]
 		pub fn approve_issue(origin, issue_id: T::Hash) -> dispatch::DispatchResult {
-			let sender = ensure_signed(origin)?;
+			T::ApproveOrigin::ensure_origin(origin)?;
 
 			let mut issue_info = Self::get_issue(issue_id).ok_or(Error::<T>::InvalidIndex)?;
 			ensure!(issue_info.status == 0, Error::<T>::AlreadyApproved);
@@ -234,6 +237,7 @@ decl_module! {
 
 			let project_id = asset.project_id;
 			let mut project = Self::get_project(project_id).ok_or(Error::<T>::InvalidIndex)?;
+			let owner = project.owner.clone();
 
 			issue_info.status = 1;
 
@@ -245,7 +249,7 @@ decl_module! {
 			<Projects<T>>::insert(project_id, &project);
 			<Issues<T>>::insert(issue_id, &issue_info);
 
-			<Balances<T>>::mutate((asset_id, sender), |balance| *balance += issue_info.amount);
+			<Balances<T>>::mutate((asset_id, owner), |balance| *balance += issue_info.amount);
 
 			Self::deposit_event(RawEvent::IssueApproved(issue_id));
 
@@ -278,7 +282,7 @@ decl_module! {
 
 		#[weight = 10_000 + T::DbWeight::get().writes(1)]
 		pub fn approve_burn(origin, burn_id: T::Hash) -> dispatch::DispatchResult {
-			let sender = ensure_signed(origin)?;
+			T::ApproveOrigin::ensure_origin(origin)?;
 
 			let mut burn_info = Self::get_burn(burn_id).ok_or(Error::<T>::InvalidIndex)?;
 			ensure!(burn_info.status == 0, Error::<T>::AlreadyApproved);
@@ -288,6 +292,7 @@ decl_module! {
 
 			let project_id = asset.project_id;
 			let mut project = Self::get_project(project_id).ok_or(Error::<T>::InvalidIndex)?;
+			let owner = project.owner.clone();
 
 			burn_info.status = 1;
 			project.total_supply -= burn_info.amount;
@@ -296,7 +301,7 @@ decl_module! {
 			<Assets<T>>::insert(asset_id, &asset);
 			<Projects<T>>::insert(project_id, &project);
 			<Burns<T>>::insert(burn_id, &burn_info);
-			<Balances<T>>::mutate((asset_id, sender), |balance| *balance -= burn_info.amount);
+			<Balances<T>>::mutate((asset_id, owner), |balance| *balance -= burn_info.amount);
 
 			Self::deposit_event(RawEvent::IssueApproved(burn_id));
 
