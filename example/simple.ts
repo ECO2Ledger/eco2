@@ -31,6 +31,13 @@ async function submitTx(label: string, tx, sender) {
     })
 }
 
+async function queryBalance(api: ApiPromise, address: string) {
+    const account = await api.query.system.account(address)
+    console.log(`queryBalance for ${address}'`)
+    console.log('account:', account.toJSON())
+    console.log('balance:', account.data.free.toHuman(), account.data.free.toString())
+}
+
 async function voteProposal(api: ApiPromise, sender: KeyringPair, id: string, index: number, approve: boolean) {
     const tx = api.tx['carbonCommittee']['vote'](id, index, approve)
     await submitTx('voteProposal', tx, sender)
@@ -254,7 +261,7 @@ async function main() {
 
     // await queryCarbonCommitteeMembers(api)
 
-    // await queryBalance(api, alice.address)
+    await queryBalance(api, alice.address)
     // await transfer(api, alice, jack.address, '200000000000')
     // await transfer(api, alice, bob.address, '200000000000')
     // await transfer(api, alice, charlie.address, '200000000000')
