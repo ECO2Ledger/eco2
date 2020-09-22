@@ -147,6 +147,7 @@ decl_module! {
 		/// # </weight>
 		#[weight = 0]
 		fn burn(origin, id: T::Hash, amount: u64) {
+			ensure!(amount > 0, Error::<T>::AmountZero);
 			let origin = ensure_signed(origin)?;
 
 			let origin_account = (id, origin.clone());
@@ -241,9 +242,17 @@ mod tests {
 		type OnKilledAccount = ();
 		type SystemWeightInfo = ();
 	}
+	parameter_types! {
+		pub const MinimumPeriod: u64 = 1000;
+	}
+	impl pallet_timestamp::Trait for Test {
+		type Moment = u64;
+		type OnTimestampSet = ();
+		type MinimumPeriod = MinimumPeriod;
+		type WeightInfo = ();
+	}
 	impl Trait for Test {
 		type Event = ();
-		type AssetId = u32;
 	}
 	type Assets = Module<Test>;
 
@@ -254,54 +263,80 @@ mod tests {
 			.into()
 	}
 
+	fn issue_asset1(issuer: u64, amount: u64) -> <Test as frame_system::Trait>::Hash {
+		let symbol = b"USD1".to_vec();
+		let name = b"First USD Stable coin".to_vec();
+		let decimals = 8u8;
+		let max_supply = amount * 10;
+		let first_supply = amount;
+		assert_ok!(Assets::issue(
+			Origin::signed(issuer),
+			symbol.clone(),
+			name.clone(),
+			decimals,
+			max_supply,
+			first_supply,
+		));
+
+		<Test as frame_system::Trait>::Hashing::hash_of(&(
+			b"ECRC10",
+			&issuer,
+			&symbol,
+			&name,
+			decimals,
+			max_supply,
+			first_supply,
+		))
+	}
+
 	#[test]
 	fn issuing_asset_units_to_issuer_should_work() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(Assets::issue(Origin::signed(1), 100));
-			assert_eq!(Assets::balance(0, 1), 100);
+			let id = issue_asset1(1, 100);
+			assert_eq!(Assets::balance(id, 1), 100);
 		});
 	}
 
 	#[test]
 	fn querying_total_supply_should_work() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(Assets::issue(Origin::signed(1), 100));
-			assert_eq!(Assets::balance(0, 1), 100);
-			assert_ok!(Assets::transfer(Origin::signed(1), 0, 2, 50));
-			assert_eq!(Assets::balance(0, 1), 50);
-			assert_eq!(Assets::balance(0, 2), 50);
-			assert_ok!(Assets::transfer(Origin::signed(2), 0, 3, 31));
-			assert_eq!(Assets::balance(0, 1), 50);
-			assert_eq!(Assets::balance(0, 2), 19);
-			assert_eq!(Assets::balance(0, 3), 31);
-			assert_ok!(Assets::destroy(Origin::signed(3), 0));
-			assert_eq!(Assets::total_supply(0), 69);
+			let id = issue_asset1(1, 100);
+			assert_eq!(Assets::balance(id, 1), 100);
+			assert_ok!(Assets::transfer(Origin::signed(1), id, 2, 50));
+			assert_eq!(Assets::balance(id, 1), 50);
+			assert_eq!(Assets::balance(id, 2), 50);
+			assert_ok!(Assets::transfer(Origin::signed(2), id, 3, 31));
+			assert_eq!(Assets::balance(id, 1), 50);
+			assert_eq!(Assets::balance(id, 2), 19);
+			assert_eq!(Assets::balance(id, 3), 31);
+			assert_ok!(Assets::burn(Origin::signed(3), id, 31));
+			assert_eq!(Assets::total_supply(id), 69);
 		});
 	}
 
 	#[test]
 	fn transferring_amount_above_available_balance_should_work() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(Assets::issue(Origin::signed(1), 100));
-			assert_eq!(Assets::balance(0, 1), 100);
-			assert_ok!(Assets::transfer(Origin::signed(1), 0, 2, 50));
-			assert_eq!(Assets::balance(0, 1), 50);
-			assert_eq!(Assets::balance(0, 2), 50);
+			let id = issue_asset1(1, 100);
+			assert_eq!(Assets::balance(id, 1), 100);
+			assert_ok!(Assets::transfer(Origin::signed(1), id, 2, 50));
+			assert_eq!(Assets::balance(id, 1), 50);
+			assert_eq!(Assets::balance(id, 2), 50);
 		});
 	}
 
 	#[test]
 	fn transferring_amount_more_than_available_balance_should_not_work() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(Assets::issue(Origin::signed(1), 100));
-			assert_eq!(Assets::balance(0, 1), 100);
-			assert_ok!(Assets::transfer(Origin::signed(1), 0, 2, 50));
-			assert_eq!(Assets::balance(0, 1), 50);
-			assert_eq!(Assets::balance(0, 2), 50);
-			assert_ok!(Assets::destroy(Origin::signed(1), 0));
-			assert_eq!(Assets::balance(0, 1), 0);
+			let id = issue_asset1(1, 100);
+			assert_eq!(Assets::balance(id, 1), 100);
+			assert_ok!(Assets::transfer(Origin::signed(1), id, 2, 50));
+			assert_eq!(Assets::balance(id, 1), 50);
+			assert_eq!(Assets::balance(id, 2), 50);
+			assert_ok!(Assets::burn(Origin::signed(1), id, 50));
+			assert_eq!(Assets::balance(id, 1), 0);
 			assert_noop!(
-				Assets::transfer(Origin::signed(1), 0, 1, 50),
+				Assets::transfer(Origin::signed(1), id, 1, 50),
 				Error::<Test>::BalanceLow
 			);
 		});
@@ -310,10 +345,10 @@ mod tests {
 	#[test]
 	fn transferring_less_than_one_unit_should_not_work() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(Assets::issue(Origin::signed(1), 100));
-			assert_eq!(Assets::balance(0, 1), 100);
+			let id = issue_asset1(1, 100);
+			assert_eq!(Assets::balance(id, 1), 100);
 			assert_noop!(
-				Assets::transfer(Origin::signed(1), 0, 2, 0),
+				Assets::transfer(Origin::signed(1), id, 2, 0),
 				Error::<Test>::AmountZero
 			);
 		});
@@ -322,10 +357,10 @@ mod tests {
 	#[test]
 	fn transferring_more_units_than_total_supply_should_not_work() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(Assets::issue(Origin::signed(1), 100));
-			assert_eq!(Assets::balance(0, 1), 100);
+			let id = issue_asset1(1, 100);
+			assert_eq!(Assets::balance(id, 1), 100);
 			assert_noop!(
-				Assets::transfer(Origin::signed(1), 0, 2, 101),
+				Assets::transfer(Origin::signed(1), id, 2, 101),
 				Error::<Test>::BalanceLow
 			);
 		});
@@ -334,20 +369,32 @@ mod tests {
 	#[test]
 	fn destroying_asset_balance_with_positive_balance_should_work() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(Assets::issue(Origin::signed(1), 100));
-			assert_eq!(Assets::balance(0, 1), 100);
-			assert_ok!(Assets::destroy(Origin::signed(1), 0));
+			let id = issue_asset1(1, 100);
+			assert_eq!(Assets::balance(id, 1), 100);
+			assert_ok!(Assets::burn(Origin::signed(1), id, 100));
 		});
 	}
 
 	#[test]
 	fn destroying_asset_balance_with_zero_balance_should_not_work() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(Assets::issue(Origin::signed(1), 100));
-			assert_eq!(Assets::balance(0, 2), 0);
+			let id = issue_asset1(1, 100);
+			assert_eq!(Assets::balance(id, 2), 0);
 			assert_noop!(
-				Assets::destroy(Origin::signed(2), 0),
-				Error::<Test>::BalanceZero
+				Assets::burn(Origin::signed(2), id, 0),
+				Error::<Test>::AmountZero
+			);
+		});
+	}
+
+	#[test]
+	fn destroying_asset_balance_with_insufficient_balance_should_not_work() {
+		new_test_ext().execute_with(|| {
+			let id = issue_asset1(1, 100);
+			assert_eq!(Assets::balance(id, 1), 100);
+			assert_noop!(
+				Assets::burn(Origin::signed(1), id, 101),
+				Error::<Test>::BalanceLow
 			);
 		});
 	}
