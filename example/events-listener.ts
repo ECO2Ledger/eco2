@@ -84,6 +84,7 @@ const eco2EventHandlers = {
                 title: `Proposal for new project(${symbol})`,
                 type: 'project',
                 proposalId: '',
+                proposalIndex: -1,
                 key: projectId,
                 timestamp,
             })
@@ -120,6 +121,7 @@ const eco2EventHandlers = {
                 title: `Proposal for new asset(${symbol}.${vintage})`,
                 type: 'asset',
                 proposalId: '',
+                proposalIndex: -1,
                 key: assetId,
                 timestamp,
             })
@@ -155,6 +157,7 @@ const eco2EventHandlers = {
                 title: `Proposal for new issuing asset(${asset.symbol}.${asset.vintage})`,
                 type: 'issue',
                 proposalId: '',
+                proposalIndex: -1,
                 key: issueId,
                 timestamp,
             })
@@ -183,10 +186,11 @@ const eco2EventHandlers = {
                 return
             }
             console.log('\tAdd new burn proposal doc')
-            await db.insertAsync(db.carbonProjects)({
+            await db.insertAsync(db.carbonProposals)({
                 title: `Proposal for burning asset(${asset.symbol}.${asset.vintage})`,
                 type: 'burn',
                 proposalId: '',
+                proposalIndex: -1,
                 key: burnId,
                 timestamp,
             })
@@ -269,8 +273,9 @@ const eco2EventHandlers = {
     },
 
     'carbonCommittee:Proposed': async (_, data) => {
+        const proposalIndex = data[1].toNumber()
         const proposalId = data[2].toString()
-        console.log('carbonCommittee:Proposed', proposalId)
+        console.log('carbonCommittee:Proposed', proposalIndex, proposalId)
 
         const result = await gApi.query['carbonCommittee']['proposalOf'](proposalId)
         if (result.isEmpty) return
@@ -296,7 +301,7 @@ const eco2EventHandlers = {
                 console.log('\tUnexpected callIndex')
         }
         console.log(`\tUpdate proposal at ${key}: $set proposalId: ${proposalId}`)
-        await db.updateAsync(db.carbonProposals)({ key }, { $set: { proposalId } }, {})
+        await db.updateAsync(db.carbonProposals)({ key }, { $set: { proposalId, proposalIndex } }, {})
     },
     'carbonCommittee:Closed': async (_, data) => {
         const proposalId = data[0].toString()
