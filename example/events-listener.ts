@@ -332,7 +332,11 @@ async function processEventsAtBlockHash(api, hash: string) {
         const eventFullPath = `${record.event.section}:${record.event.method}`
         const handler = eco2EventHandlers[eventFullPath]
         if (handler) {
-            handler(record, record.event.data)
+            try {
+                await handler(record, record.event.data)
+            } catch (e) {
+                console.log(e)
+            }
         }
     }
 }
