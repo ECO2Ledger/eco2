@@ -46,6 +46,8 @@ decl_error! {
 		BalanceLow,
 		/// Balance should be non-zero
 		BalanceZero,
+		/// Duplicated asset is submitted
+		DuplicatedKey,
 	}
 }
 
@@ -81,6 +83,7 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 
 			let asset_id = T::Hashing::hash_of(&(b"ECRC10", &origin, &symbol, &name, decimals, max_supply, first_supply));
+			ensure!(!<AssetInfos<T>>::contains_key(asset_id), Error::<T>::DuplicatedKey);
 
 			let asset_info = ECRC10 {
 				symbol: symbol.clone(),
