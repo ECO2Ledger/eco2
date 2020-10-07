@@ -91,6 +91,8 @@ decl_event!(
 		BurnApproved(Hash),
 		/// Some assets were transferred. \[asset_id, from, to, amount, timestamp]\
 		Transferred(Hash, AccountId, AccountId, u64, Moment),
+		/// Carbon neutralization. \[asset_id, owner, amount,  timestamp]\
+		Neutralized(Hash, AccountId, u64, Moment),
 	}
 );
 
@@ -322,6 +324,24 @@ decl_module! {
 
 			let now = <pallet_timestamp::Module<T>>::get();
 			Self::deposit_event(RawEvent::Transferred(asset_id, sender, to, amount, now));
+
+			Ok(())
+		}
+
+		#[weight = 10_000 + T::DbWeight::get().writes(1)]
+		pub fn neutralize(origin, asset_id: T::Hash, amount: u64, additional: Vec<u8>) -> dispatch::DispatchResult {
+			let sender = ensure_signed(origin)?;
+
+			let origin_account = (asset_id, sender.clone());
+			let origin_balance = <Balances<T>>::get(&origin_account);
+
+			ensure!(amount != 0, Error::<T>::AmountZero);
+			ensure!(origin_balance >= amount, Error::<T>::BalanceLow);
+
+			<Balances<T>>::mutate(origin_account, |balance| *balance -= amount);
+
+			let now = <pallet_timestamp::Module<T>>::get();
+			Self::deposit_event(RawEvent::Neutralized(asset_id, sender, amount, now));
 
 			Ok(())
 		}
