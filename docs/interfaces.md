@@ -208,6 +208,17 @@ async function queryCarbonCommitteeMembers(api: ApiPromise) {
 }
 ```
 
+### 1.19 碳中和
+
+```
+async function neutralize(api: ApiPromise, sender: KeyringPair, assetId: string, amount: string, additional: {}) {
+    const tx = api.tx['carbonAssets']['neutralize'](assetId, amount, JSON.stringify(additional))
+    await submitTx('neutralize', tx, sender)
+}
+
+await neutralize(api, alice, assetId, '500000', { type: '交通', name: '马云', reason: '阿里云' })
+```
+
 ## 2 列表查询接口
 
 ### 2.1 碳汇项目列表

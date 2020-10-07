@@ -195,6 +195,11 @@ async function cancelOrder(api: ApiPromise, sender: KeyringPair, orderId: string
     await submitTx('cancelOrder', tx, sender)
 }
 
+async function neutralize(api: ApiPromise, sender: KeyringPair, assetId: string, amount: string, additional: {}) {
+    const tx = api.tx['carbonAssets']['neutralize'](assetId, amount, JSON.stringify(additional))
+    await submitTx('neutralize', tx, sender)
+}
+
 async function main() {
     await cryptoWaitReady()
 
@@ -261,7 +266,7 @@ async function main() {
 
     // await queryCarbonCommitteeMembers(api)
 
-    await queryBalance(api, alice.address)
+    // await queryBalance(api, alice.address)
     // await transfer(api, alice, jack.address, '200000000000')
     // await transfer(api, alice, bob.address, '200000000000')
     // await transfer(api, alice, charlie.address, '200000000000')
@@ -311,6 +316,8 @@ async function main() {
 
     // await takeOrder(api, jack, orderId, '1000')
     // await cancelOrder(api, alice, orderId)
+
+    // await neutralize(api, alice, assetId, '500000', { type: '交通', name: '马云', reason: '阿里云' })
 
     // await queryStandardBalance(api, moneyId, alice.address)
     // await queryStandardBalance(api, moneyId, jack.address)
