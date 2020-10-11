@@ -1,4 +1,4 @@
-use node_template_runtime::{
+use eco2_runtime::{
 	AccountId, AuraConfig, BalancesConfig, CarbonMembershipConfig, GenesisConfig, GrandpaConfig,
 	Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
