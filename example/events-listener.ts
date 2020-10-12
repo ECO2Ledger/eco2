@@ -370,7 +370,7 @@ function sleep(ms) {
 async function startWorker(api) {
     while (true) {
         if (lastBlockNumber < latestBlockNumber) {
-            await processEventsInRange(api, lastBlockNumber, latestBlockNumber)
+            await processEventsInRange(api, lastBlockNumber + 1, latestBlockNumber)
             lastBlockNumber = latestBlockNumber
             saveLastBlockNumber(lastBlockNumber)
         }
