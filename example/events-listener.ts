@@ -38,9 +38,9 @@ const db = {
 }
 
 let lastBlockNumber = 0
-let latestBlockNumber = 0
-let initialized = false
 const lastBlockNumberFile = './.data/lastBlockNumber'
+
+let latestBlockNumber = 0
 
 const fs = require('fs')
 function readLastBlockNumber() {
@@ -48,7 +48,7 @@ function readLastBlockNumber() {
         const content = fs.readFileSync(lastBlockNumberFile, 'utf8')
         return Number.parseInt(content)
     } catch (e) {
-        return 1
+        return 0
     }
 }
 
@@ -346,6 +346,13 @@ async function processEventsAtBlockNumber(api, n: number) {
     await processEventsAtBlockHash(api, hash)
 }
 
+async function processEventsInRange(api: ApiPromise, from: number, to: number) {
+    console.log(`process past events from ${from} to ${to}`)
+    for (let i = from; i <= to; i++) {
+        await processEventsAtBlockNumber(api, i)
+    }
+}
+
 function listenBlocks(api: ApiPromise) {
     api.rpc.chain.subscribeNewHeads((header) => {
         console.log('New block:', header.number.toNumber(), header.hash.toString())
@@ -353,14 +360,12 @@ function listenBlocks(api: ApiPromise) {
     api.rpc.chain.subscribeFinalizedHeads((header) => {
         console.log('New Finalized block:', header.number.toNumber(), header.hash.toString())
         latestBlockNumber = header.number.toNumber()
-        if (!initialized) {
-            startWorker(api).then(() => {
-                console.log('worker finished')
-            }).catch(e => {
-                console.log('worker error:', e)
-            })
-            initialized = true
-        }
+
+        startWorker(api).then(() => {
+            console.log('worker finished')
+        }).catch(e => {
+            console.log('worker error:', e)
+        })
     })
 }
 
@@ -371,10 +376,7 @@ function sleep(ms) {
 async function startWorker(api) {
     while (true) {
         if (lastBlockNumber < latestBlockNumber) {
-            console.log(`process events from block ${lastBlockNumber + 1} to ${latestBlockNumber}`)
-            for (let i = lastBlockNumber + 1; i <= latestBlockNumber; i++) {
-                await processEventsAtBlockNumber(api, i)
-            }
+            await processEventsInRange(api, lastBlockNumber, latestBlockNumber)
             lastBlockNumber = latestBlockNumber
             saveLastBlockNumber(lastBlockNumber)
         }
@@ -652,11 +654,16 @@ async function main() {
     gApi = api
 
     await api.isReady
+    console.log('api is ready')
 
-    // listenBlocks(api)
-    // processEventsAtBlock(api, '0x7e6500c8af6d02a132fdfbbf538fe0f81430d257827adfd1572f4d4104a4fb97')
     lastBlockNumber = readLastBlockNumber()
     await initDB()
+
+    const latestHash = await api.rpc.chain.getFinalizedHead()
+    const latestHeader = await api.rpc.chain.getHeader(latestHash)
+    await processEventsInRange(api, lastBlockNumber + 1, latestHeader.number.toNumber())
+    lastBlockNumber = latestHeader.number.toNumber()
+    saveLastBlockNumber(lastBlockNumber)
 
     listenBlocks(api)
     startServer()

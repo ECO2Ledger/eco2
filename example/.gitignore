@@ -3,3 +3,4 @@ node_modules
 *.lock
 *.db
 .data
+package-lock.json
