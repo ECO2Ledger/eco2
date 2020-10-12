@@ -1,6 +1,6 @@
-# Substrate Node Template
+# ECO2 Ledger
 
-A new FRAME-based Substrate node, ready for hacking :rocket:
+ECO2 blockchain based on substrate framework.
 
 ## Local Development
 
@@ -37,19 +37,19 @@ cargo build --release
 Purge any existing dev chain state:
 
 ```bash
-./target/release/node-template purge-chain --dev
+./target/release/eco2 purge-chain --dev
 ```
 
 Start a dev chain:
 
 ```bash
-./target/release/node-template --dev
+./target/release/eco2 --dev
 ```
 
 Or, start a dev chain with detailed logging:
 
 ```bash
-RUST_LOG=debug RUST_BACKTRACE=1 ./target/release/node-template -lruntime=debug --dev
+RUST_LOG=debug RUST_BACKTRACE=1 ./target/release/eco2 -lruntime=debug --dev
 ```
 
 ### Multi-Node Local Testnet
@@ -100,7 +100,7 @@ After the node has been [built](#build), refer to the embedded documentation to 
 capabilities and configuration parameters that it exposes:
 
 ```shell
-./target/release/node-template --help
+./target/release/eco2 --help
 ```
 
 ### Runtime
@@ -160,15 +160,15 @@ Then run the following command to start a single node development chain.
 ```
 
 This command will firstly compile your code, and then start a local development network. You can
-also replace the default command (`cargo build --release && ./target/release/node-template --dev --ws-external`)
+also replace the default command (`cargo build --release && ./target/release/eco2 --dev --ws-external`)
 by appending your own. A few useful ones are as follow.
 
 ```bash
 # Run Substrate node without re-compiling
-./scripts/docker_run.sh ./target/release/node-template --dev --ws-external
+./scripts/docker_run.sh ./target/release/eco2 --dev --ws-external
 
 # Purge the local dev chain
-./scripts/docker_run.sh ./target/release/node-template purge-chain --dev
+./scripts/docker_run.sh ./target/release/eco2 purge-chain --dev
 
 # Check whether the code is compilable
 ./scripts/docker_run.sh cargo check
