@@ -360,12 +360,6 @@ function listenBlocks(api: ApiPromise) {
     api.rpc.chain.subscribeFinalizedHeads((header) => {
         console.log('New Finalized block:', header.number.toNumber(), header.hash.toString())
         latestBlockNumber = header.number.toNumber()
-
-        startWorker(api).then(() => {
-            console.log('worker finished')
-        }).catch(e => {
-            console.log('worker error:', e)
-        })
     })
 }
 
@@ -666,6 +660,11 @@ async function main() {
     saveLastBlockNumber(lastBlockNumber)
 
     listenBlocks(api)
+    startWorker(api).then(() => {
+        console.log('worker finished')
+    }).catch(e => {
+        console.log('worker error:', e)
+    })
     startServer()
 }
 
