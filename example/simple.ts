@@ -278,7 +278,7 @@ async function main() {
     // await queryProject(api, projectId)
     // await proposeProject(api, bob, projectId)
 
-    let proposalId = '0x384fd290e2a083b6df28080691af71dcfba52a207f54e20c5de8377c064d68f3'
+    let proposalId = '0x5e5325d4a301b6546dcafb2a33da7af031586c9bd7db028586ce2c450377daaa'
     // await voteProposal(api, charlie, proposalId, 0, true)
     // await queryProposalVoting(api, proposalId)
     // await closeProposal(api, charlie, proposalId, 0)

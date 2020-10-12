@@ -103,6 +103,8 @@ decl_error! {
 		DuplicatedKey,
 		AlreadyApproved,
 		ProjectNotApproved,
+		PermissionDenied,
+		OverIssueLimit,
 		AssetNotApproved,
 		AmountZero,
 		BalanceLow,
@@ -159,6 +161,8 @@ decl_module! {
 
 			let project = Self::get_project(project_id).ok_or(Error::<T>::InvalidIndex)?;
 			ensure!(project.status == 1, Error::<T>::ProjectNotApproved);
+			ensure!(project.owner == sender, Error::<T>::PermissionDenied);
+			ensure!(initial_supply + project.total_supply <= project.max_supply, Error::<T>::OverIssueLimit);
 
 			let asset_id = T::Hashing::hash_of(&(b"asset", &sender, project_id, &vintage, initial_supply, &additional));
 			ensure!(!<Assets<T>>::contains_key(asset_id), Error::<T>::DuplicatedKey);
@@ -189,6 +193,8 @@ decl_module! {
 			let mut project = Self::get_project(asset.project_id).ok_or(Error::<T>::InvalidIndex)?;
 			let owner = project.owner.clone();
 
+			ensure!(asset.initial_supply + project.total_supply <= project.max_supply, Error::<T>::OverIssueLimit);
+
 			asset.status = 1;
 			asset.total_supply = asset.initial_supply;
 
@@ -209,6 +215,10 @@ decl_module! {
 
 			let asset = Self::get_asset(asset_id).ok_or(Error::<T>::InvalidIndex)?;
 			ensure!(asset.status == 1, Error::<T>::AssetNotApproved);
+
+			let project = Self::get_project(asset.project_id).ok_or(Error::<T>::InvalidIndex)?;
+			ensure!(project.owner == sender, Error::<T>::PermissionDenied);
+			ensure!(amount + project.total_supply <= project.max_supply, Error::<T>::OverIssueLimit);
 
 			let issue_id = T::Hashing::hash_of(&(b"issue", &sender, asset_id, amount, &additional));
 			ensure!(!<Issues<T>>::contains_key(issue_id), Error::<T>::DuplicatedKey);
@@ -241,9 +251,10 @@ decl_module! {
 			let mut project = Self::get_project(project_id).ok_or(Error::<T>::InvalidIndex)?;
 			let owner = project.owner.clone();
 
+			ensure!(issue_info.amount + project.total_supply <= project.max_supply, Error::<T>::OverIssueLimit);
+
 			issue_info.status = 1;
 
-			// TODO(check project total_supply <= max_supply)
 			project.total_supply += issue_info.amount;
 			asset.total_supply += issue_info.amount;
 
@@ -265,8 +276,14 @@ decl_module! {
 			let asset = Self::get_asset(asset_id).ok_or(Error::<T>::InvalidIndex)?;
 			ensure!(asset.status == 1, Error::<T>::AssetNotApproved);
 
+			let project = Self::get_project(asset.project_id).ok_or(Error::<T>::InvalidIndex)?;
+			ensure!(project.owner == sender, Error::<T>::PermissionDenied);
+
 			let burn_id = T::Hashing::hash_of(&(b"burn", &sender, asset_id, amount, &additional));
 			ensure!(!<Projects<T>>::contains_key(burn_id), Error::<T>::DuplicatedKey);
+
+			let balance = Self::get_balance((asset_id, sender.clone()));
+			ensure!(amount <= balance, Error::<T>::BalanceLow);
 
 			let burn_info = BurnInfo {
 				asset_id,
