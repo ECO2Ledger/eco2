@@ -383,6 +383,9 @@ function startServer() {
         logger: true
     })
 
+    fastify.register(require('fastify-cors'), {
+    })
+
     function fail(reply, error) {
         reply.send({
             success: false,
