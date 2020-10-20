@@ -493,7 +493,7 @@ function startServer() {
             filter.owner = request.query.owner
         }
         if (request.query.closed) {
-            filter.closed = parseIntOr(request.query.approved, 0)
+            filter.closed = parseIntOr(request.query.closed, 0)
         }
         findWithComplexCondition(db.orders, request, filter, (err, result) => {
             err ? fail(reply, err) : ok(reply, result)
