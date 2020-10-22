@@ -56,9 +56,9 @@ function saveLastBlockNumber(n) {
     fs.writeFileSync(lastBlockNumberFile, n.toString(), 'utf8')
 }
 
-function constructPotentialBalanceDoc(account: string, assetId: string, type: 'carbon' | 'standard') {
+function constructPotentialBalanceDoc(account: string, assetId: string, symbol: string, type: 'carbon' | 'standard') {
     const key = [account.slice(0, 6), assetId.slice(0, 8)].join(':')
-    return { key, account, assetId, type }
+    return { key, account, assetId, type, symbol }
 }
 
 const eco2EventHandlers = {
@@ -133,7 +133,8 @@ const eco2EventHandlers = {
         console.log('AssetApproved', assetId)
         await db.updateAsync(db.carbonAssets)({ assetId }, { $set: { approved: 1 } }, {})
         const asset = await db.findOneAsync(db.carbonAssets)({ assetId })
-        await db.insertAsync(db.potentialBalances)(constructPotentialBalanceDoc(asset.owner, assetId, 'carbon'))
+        const pbd = constructPotentialBalanceDoc(asset.owner, assetId, asset.symbol, 'carbon')
+        await db.updateAsync(db.potentialBalances)({ assetId }, pbd, { upsert: true })
     },
 
     'carbonAssets:IssueSubmited': async (_, data) => {
@@ -210,7 +211,9 @@ const eco2EventHandlers = {
         const amount = data[3].toString()
         const timestamp = data[4].toNumber()
         console.log('carbonAssets:Transferred', assetId, from, to, amount, timestamp)
-        await db.insertAsync(db.potentialBalances)(constructPotentialBalanceDoc(to, assetId, 'carbon'))
+        const asset = await db.findOneAsync(db.carbonAssets)({ assetId })
+        const pbd = constructPotentialBalanceDoc(to, assetId, asset.symbol, 'carbon')
+        await db.updateAsync(db.potentialBalances)({ assetId }, pbd, { upsert: true })
     },
 
     'carbonExchange:NewOrder': async (_, data) => {
@@ -262,14 +265,18 @@ const eco2EventHandlers = {
         const doc = { assetId, symbol, owner, timestamp }
         console.log('standardAssets:NewAsset', doc)
         await db.insertAsync(db.standardAssets)(doc)
-        await db.insertAsync(db.potentialBalances)(constructPotentialBalanceDoc(owner, assetId, 'standard'))
+
+        const pbd = constructPotentialBalanceDoc(owner, assetId, symbol, 'standard')
+        await db.updateAsync(db.potentialBalances)({ assetId }, pbd, { upsert: true })
     },
 
     'standardAssets:Transferred': async (_, data) => {
         const assetId = data[0].toString()
         const to = data[2].toString()
         console.log('standardAssets:Transferred', assetId, to)
-        await db.insertAsync(db.potentialBalances)(constructPotentialBalanceDoc(to, assetId, 'standard'))
+        const asset = await db.findOneAsync(db.standardAssets)({ assetId })
+        const pbd = constructPotentialBalanceDoc(to, assetId, asset.symbol, 'standard')
+        await db.updateAsync(db.potentialBalances)({ assetId }, pbd, { upsert: true })
     },
 
     'carbonCommittee:Proposed': async (_, data) => {
