@@ -105,7 +105,8 @@ const moneyId = '0xb2514c5e056cdf38fa3708917c4b04d85363c8186884cb7a28d0456d8d4d4
 const price = '1000'
 const amount = '200000'
 const direction = 0 // 0: 卖 1: 买
-api.tx['carbonExchange']['makeOrder'](assetId, moneyId, price, amount, direction)
+const salt = Date.now()
+api.tx['carbonExchange']['makeOrder'](assetId, moneyId, price, amount, direction, salt)
 ```
 
 ### 1.11 take order
@@ -313,11 +314,16 @@ GET /carbon_orders
         "count": 1, 
         "docs": [
             {
-                "orderId": "0x880f7d4a081ba11386c180dfb0aca24b69af31c0215e0d7cf861b21c3b93c7c4", 
-                "owner": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 
-                "closed": 0, 
-                "timestamp": 1600575534000, 
-                "_id": "RQjniocRC0DK7ppY"
+                orderId: "0xd0b4ba48d4cbdc5b9c22975b11f81ea5d39a87e6bc6b1b69698712a6e2ee6b0a",
+                owner: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+                closed: 0,
+                timestamp: 1603391406000,
+                assetId: "0x75b8a626a38d10a72799709e28d96da122cc914cc7df8f0d3a3c364bb6c29c86",
+                moneyId: "0x0000000000000000000000000000000000000000000000000000000000000000",
+                assetSymbol: "ABC.2020",
+                moneySymbol: "ECO2",
+                pair: "ABC.2020/ECO2",
+                _id: "N7XWIMPkQLO3UHXF"
             }
         ]
     }
@@ -342,14 +348,19 @@ GET /carbon_deals
         "count": 2, 
         "docs": [
             {
-                "orderId": "0x18ca494a53b5926c668ea580bb7875a28931df03a27107bb5305ddeda9d4e8c1", 
-                "maker": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 
-                "taker": "5GRdmMkKeKaV94qU3JjDr2ZwRAgn3xwzd2FEJYKjjSFipiAe", 
-                "price": "50", 
-                "amount": "1000", 
-                "timestamp": 1600576944000, 
-                "direction": 1, 
-                "_id": "XTD1Qhvl7DHtT7Gx"
+                orderId: "0xd0b4ba48d4cbdc5b9c22975b11f81ea5d39a87e6bc6b1b69698712a6e2ee6b0a",
+                maker: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+                taker: "5GRdmMkKeKaV94qU3JjDr2ZwRAgn3xwzd2FEJYKjjSFipiAe",
+                price: "50",
+                amount: "500000",
+                timestamp: 1603391532000,
+                direction: 1,
+                assetId: "0x75b8a626a38d10a72799709e28d96da122cc914cc7df8f0d3a3c364bb6c29c86",
+                moneyId: "0x0000000000000000000000000000000000000000000000000000000000000000",
+                assetSymbol: "ABC.2020",
+                moneySymbol: "ECO2",
+                pair: "ABC.2020/ECO2",
+                _id: "wlhZiYvKBee9xRl8"
             }
         ]
     }
@@ -374,6 +385,7 @@ GET /carbon_deals
             "account": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 
             "assetId": "0xb2514c5e056cdf38fa3708917c4b04d85363c8186884cb7a28d0456d8d4d49b6", 
             "type": "standard", 
+            "symbol": "ABC.2020",
             "_id": "M7ZkFuymjrPPUhfC"
         }
     ]
