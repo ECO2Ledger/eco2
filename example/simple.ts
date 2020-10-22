@@ -175,8 +175,8 @@ async function queryStandardBalance(api: ApiPromise, moneyId: string, address: s
     console.log(`queryStandardBalance: (${moneyId}, ${address}) => ${balance.toHuman()}`)
 }
 
-async function makeOrder(api: ApiPromise, sender: KeyringPair, assetId: string, moneyId: string, price: string, amount: string, direction: number) {
-    const tx = api.tx['carbonExchange']['makeOrder'](assetId, moneyId, price, amount, direction)
+async function makeOrder(api: ApiPromise, sender: KeyringPair, assetId: string, moneyId: string, price: string, amount: string, direction: number, salt: number) {
+    const tx = api.tx['carbonExchange']['makeOrder'](assetId, moneyId, price, amount, direction, salt)
     await submitTx('makeOrder', tx, sender)
 }
 
@@ -243,6 +243,8 @@ async function main() {
             price: 'u64',
             left_amount: 'u64',
             direction: 'u8',
+            locked_balance: 'u64',
+            salt: 'u64',
         },
         ECRC10: {
             symbol: 'Vec<u8>',
@@ -287,7 +289,7 @@ async function main() {
     const assetId = '0x75b8a626a38d10a72799709e28d96da122cc914cc7df8f0d3a3c364bb6c29c86'
     // await queryAsset(api, assetId)
     // await proposeAsset(api, bob, assetId)
-    proposalId = '0x393e672c311f7f594ee5d6f57687de94eea56634bc481c5751fe11563f21d92c'
+    proposalId = '0x2e2589b8489aab78226534ab8c0587d1d29c3e5ffcc7348a421b87b500965e35'
     // await voteProposal(api, charlie, proposalId, 1, true)
     // await queryProposalVoting(api, proposalId)
     // await closeProposal(api, charlie, proposalId, 1)
@@ -305,16 +307,17 @@ async function main() {
     // await approveBurn(api, alice, burnId)
 
     // await issueStandardAsset(api, jack, 'USTE', 'ECO2 backed USD coin', 8, '100000000000000000', '100000000000000')
-    const moneyId = '0x460a321af0d1b29e4948837d550780aa7af5e2722b40782c0b4fc54f51e6a799'
+    // let moneyId = '0x460a321af0d1b29e4948837d550780aa7af5e2722b40782c0b4fc54f51e6a799'
     // await queryStandardAsset(api, moneyId)
     // await queryStandardBalance(api, moneyId, jack.address)
     // await transferStandardAsset(api, jack, moneyId, alice.address, '60000000')
 
-    // await makeOrder(api, alice, assetId, moneyId, '50', '2000000', 0);
-    const orderId = '0x18ca494a53b5926c668ea580bb7875a28931df03a27107bb5305ddeda9d4e8c1'
+    let moneyId = '0x0000000000000000000000000000000000000000000000000000000000000000'
+    // await makeOrder(api, alice, assetId, moneyId, '50', '2000000', 0, Date.now());
+    const orderId = '0xd0b4ba48d4cbdc5b9c22975b11f81ea5d39a87e6bc6b1b69698712a6e2ee6b0a'
     // await queryOrder(api, orderId)
 
-    // await takeOrder(api, jack, orderId, '1000')
+    // await takeOrder(api, jack, orderId, '500000')
     // await cancelOrder(api, alice, orderId)
 
     // await neutralize(api, alice, assetId, '500000', { type: '交通', name: '马云', reason: '阿里云' })

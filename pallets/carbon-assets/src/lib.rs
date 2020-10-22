@@ -366,6 +366,16 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+	pub fn has_asset(asset_id: &T::Hash) -> bool {
+		let asset = Self::get_asset(asset_id);
+		match asset {
+			Some(val) => val.status == 1,
+			None => false,
+		}
+	}
+	pub fn balance(asset_id: &T::Hash, account: &T::AccountId) -> u64 {
+		<Balances<T>>::get((asset_id, account))
+	}
 	pub fn make_transfer(
 		asset_id: &T::Hash,
 		from: &T::AccountId,

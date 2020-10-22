@@ -219,8 +219,15 @@ const eco2EventHandlers = {
     'carbonExchange:NewOrder': async (_, data) => {
         const orderId = data[0].toString()
         const owner = data[1].toString()
-        const timestamp = data[2].toNumber()
-        const doc = { orderId, owner, closed: 0, timestamp }
+        const assetId = data[2].toString()
+        const moneyId = data[3].toString()
+        const timestamp = data[4].toNumber()
+
+        const asset = await db.findOneAsync(db.carbonAssets)({ assetId })
+        const assetSymbol = `${asset.symbol}.${asset.vintage}`
+        const moneySymbol = 'ECO2'
+        const pair = `${assetSymbol}/${moneySymbol}`
+        const doc = { orderId, owner, closed: 0, timestamp, assetId, moneyId, assetSymbol, moneySymbol, pair }
 
         console.log('NewOrder', doc)
         await db.insertAsync(db.orders)(doc)
@@ -228,18 +235,25 @@ const eco2EventHandlers = {
 
     'carbonExchange:NewDeal': async (_, data) => {
         const orderId = data[0].toString()
-        const maker = data[1].toString()
-        const taker = data[2].toString()
-        const price = data[3].toString()
-        const amount = data[4].toString()
-        const direction = data[5].toNumber()
-        const timestamp = data[6].toNumber()
-        const doc = { orderId, maker, taker, price, amount, timestamp, direction: 1 - direction }
+        const assetId = data[1].toString()
+        const moneyId = data[2].toString()
+        const maker = data[3].toString()
+        const taker = data[4].toString()
+        const price = data[5].toString()
+        const amount = data[6].toString()
+        const direction = data[7].toNumber()
+        const timestamp = data[8].toNumber()
+
+        const asset = await db.findOneAsync(db.carbonAssets)({ assetId })
+        const assetSymbol = `${asset.symbol}.${asset.vintage}`
+        const moneySymbol = 'ECO2'
+        const pair = `${assetSymbol}/${moneySymbol}`
+        const doc = { orderId, maker, taker, price, amount, timestamp, direction: 1 - direction, assetId, moneyId, assetSymbol, moneySymbol, pair }
         console.log('NewDeal', doc)
         await db.insertAsync(db.deals)(doc)
 
-        const makerDealDoc = { orderId, owner: maker, price, amount, timestamp, direction }
-        const takerDealDoc = { orderId, owner: taker, price, amount, timestamp, direction: 1 - direction }
+        const makerDealDoc = { orderId, owner: maker, price, amount, timestamp, direction, assetId, moneyId, assetSymbol, moneySymbol, pair }
+        const takerDealDoc = { orderId, owner: taker, price, amount, timestamp, direction: 1 - direction, assetId, moneyId, assetSymbol, moneySymbol, pair }
         await db.insertAsync(db.userDeals)(makerDealDoc)
         await db.insertAsync(db.userDeals)(takerDealDoc)
     },
@@ -641,11 +655,12 @@ async function main() {
             asset_id: 'Hash',
             money_id: 'Hash',
             maker: 'AccountId',
-            status: 'u8',
             amount: 'u64',
             price: 'u64',
             left_amount: 'u64',
             direction: 'u8',
+            locked_balance: 'u64',
+            salt: 'u64',
         },
         ECRC10: {
             symbol: 'Vec<u8>',
