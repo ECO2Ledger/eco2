@@ -133,7 +133,8 @@ const eco2EventHandlers = {
         console.log('AssetApproved', assetId)
         await db.updateAsync(db.carbonAssets)({ assetId }, { $set: { approved: 1 } }, {})
         const asset = await db.findOneAsync(db.carbonAssets)({ assetId })
-        const pbd = constructPotentialBalanceDoc(asset.owner, assetId, asset.symbol, 'carbon')
+        const symbol = `${asset.symbol}.${asset.vintage}`
+        const pbd = constructPotentialBalanceDoc(asset.owner, assetId, symbol, 'carbon')
         await db.updateAsync(db.potentialBalances)({ assetId }, pbd, { upsert: true })
     },
 
@@ -212,7 +213,8 @@ const eco2EventHandlers = {
         const timestamp = data[4].toNumber()
         console.log('carbonAssets:Transferred', assetId, from, to, amount, timestamp)
         const asset = await db.findOneAsync(db.carbonAssets)({ assetId })
-        const pbd = constructPotentialBalanceDoc(to, assetId, asset.symbol, 'carbon')
+        const symbol = `${asset.symbol}.${asset.vintage}`
+        const pbd = constructPotentialBalanceDoc(to, assetId, symbol, 'carbon')
         await db.updateAsync(db.potentialBalances)({ assetId }, pbd, { upsert: true })
     },
 
