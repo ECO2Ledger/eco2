@@ -135,7 +135,7 @@ const eco2EventHandlers = {
         const asset = await db.findOneAsync(db.carbonAssets)({ assetId })
         const symbol = `${asset.symbol}.${asset.vintage}`
         const pbd = constructPotentialBalanceDoc(asset.owner, assetId, symbol, 'carbon')
-        await db.updateAsync(db.potentialBalances)({ assetId }, pbd, { upsert: true })
+        await db.updateAsync(db.potentialBalances)({ key: pbd.key }, pbd, { upsert: true })
     },
 
     'carbonAssets:IssueSubmited': async (_, data) => {
@@ -215,7 +215,7 @@ const eco2EventHandlers = {
         const asset = await db.findOneAsync(db.carbonAssets)({ assetId })
         const symbol = `${asset.symbol}.${asset.vintage}`
         const pbd = constructPotentialBalanceDoc(to, assetId, symbol, 'carbon')
-        await db.updateAsync(db.potentialBalances)({ assetId }, pbd, { upsert: true })
+        await db.updateAsync(db.potentialBalances)({ key: pbd.key }, pbd, { upsert: true })
     },
 
     'carbonExchange:NewOrder': async (_, data) => {
@@ -283,7 +283,7 @@ const eco2EventHandlers = {
         await db.insertAsync(db.standardAssets)(doc)
 
         const pbd = constructPotentialBalanceDoc(owner, assetId, symbol, 'standard')
-        await db.updateAsync(db.potentialBalances)({ assetId }, pbd, { upsert: true })
+        await db.updateAsync(db.potentialBalances)({ key: pbd.key }, pbd, { upsert: true })
     },
 
     'standardAssets:Transferred': async (_, data) => {
@@ -292,7 +292,7 @@ const eco2EventHandlers = {
         console.log('standardAssets:Transferred', assetId, to)
         const asset = await db.findOneAsync(db.standardAssets)({ assetId })
         const pbd = constructPotentialBalanceDoc(to, assetId, asset.symbol, 'standard')
-        await db.updateAsync(db.potentialBalances)({ assetId }, pbd, { upsert: true })
+        await db.updateAsync(db.potentialBalances)({ key: pbd.key }, pbd, { upsert: true })
     },
 
     'carbonCommittee:Proposed': async (_, data) => {

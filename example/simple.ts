@@ -268,7 +268,7 @@ async function main() {
 
     // await queryCarbonCommitteeMembers(api)
 
-    // await queryBalance(api, alice.address)
+    await queryBalance(api, alice.address)
     // await transfer(api, alice, jack.address, '200000000000')
     // await transfer(api, alice, bob.address, '200000000000')
     // await transfer(api, alice, charlie.address, '200000000000')
