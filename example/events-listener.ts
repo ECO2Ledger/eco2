@@ -372,6 +372,9 @@ async function processEventsAtBlockNumber(api, n: number) {
 async function processEventsInRange(api: ApiPromise, from: number, to: number) {
     console.log(`process past events from ${from} to ${to}`)
     for (let i = from; i <= to; i++) {
+        if (i % 10000 === 0) {
+            console.log(`Block ${i} is processed`)
+        }
         await processEventsAtBlockNumber(api, i)
     }
 }
