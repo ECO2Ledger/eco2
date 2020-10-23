@@ -185,6 +185,7 @@ decl_module! {
 					<T::Lookup as StaticLookup>::unlookup(taker.clone()),
 					money_amount.saturated_into(),
 				)?;
+				order.locked_balance -= money_amount;
 			}
 			// let money_amount = price * amount;
 			// let money_balance = <pallet_standard_assets::Module<T>>::balance(order.money_id, taker.clone());
@@ -215,6 +216,18 @@ decl_module! {
 
 			let order = Self::get_order(order_id).ok_or(Error::<T>::InvalidIndex)?;
 			ensure!(order.maker == sender, Error::<T>::PermissionDenied);
+
+			let pot_account = Self::pot_account_id();
+			if order.direction == Direction::ASK as u8 {
+				<pallet_carbon_assets::Module<T>>::make_transfer(&order.asset_id, &pot_account, &sender, order.left_amount)?;
+			} else {
+				// order.direction == Direction::BID as u8
+				<pallet_balances::Module<T>>::transfer(
+					T::Origin::from(Some(pot_account).into()),
+					<T::Lookup as StaticLookup>::unlookup(sender),
+					order.locked_balance.saturated_into(),
+				)?;
+			}
 			<Orders<T>>::remove(order_id);
 
 			Self::deposit_event(RawEvent::OrderCanceled(order_id));
