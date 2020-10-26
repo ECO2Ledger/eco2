@@ -27,8 +27,8 @@ decl_event! {
 		<T as frame_system::Trait>::AccountId,
 		<T as pallet_timestamp::Trait>::Moment,
 	{
-		/// Some assets were issued. \[asset_id, owner, symbol, first_supply, timestamp\]
-		NewAsset(Hash, Vec<u8>, AccountId, u64, Moment),
+		/// Some assets were issued. \[asset_id, owner, symbol, first_supply, decimals, timestamp\]
+		NewAsset(Hash, Vec<u8>, AccountId, u64, u8, Moment),
 		/// Some assets were transferred. \[asset_id, from, to, amount, timestamp\]
 		Transferred(Hash, AccountId, AccountId, u64, Moment),
 		/// Some assets were minted. \[asset_id, owner, amount\]
@@ -96,7 +96,7 @@ decl_module! {
 			<TotalSupply<T>>::insert(asset_id, first_supply);
 
 			let now = <pallet_timestamp::Module<T>>::get();
-			Self::deposit_event(RawEvent::NewAsset(asset_id, symbol, origin, first_supply, now));
+			Self::deposit_event(RawEvent::NewAsset(asset_id, symbol, origin, first_supply, decimals, now));
 		}
 
 		/// Move some assets from one holder to another.

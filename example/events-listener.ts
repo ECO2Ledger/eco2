@@ -56,9 +56,9 @@ function saveLastBlockNumber(n) {
     fs.writeFileSync(lastBlockNumberFile, n.toString(), 'utf8')
 }
 
-function constructPotentialBalanceDoc(account: string, assetId: string, symbol: string, type: 'carbon' | 'standard') {
+function constructPotentialBalanceDoc(account: string, assetId: string, symbol: string, decimals: number, type: 'carbon' | 'standard') {
     const key = [account.slice(0, 6), assetId.slice(0, 8)].join(':')
-    return { key, account, assetId, type, symbol }
+    return { key, account, assetId, type, symbol, decimals }
 }
 
 const eco2EventHandlers = {
@@ -134,7 +134,7 @@ const eco2EventHandlers = {
         await db.updateAsync(db.carbonAssets)({ assetId }, { $set: { approved: 1 } }, {})
         const asset = await db.findOneAsync(db.carbonAssets)({ assetId })
         const symbol = `${asset.symbol}.${asset.vintage}`
-        const pbd = constructPotentialBalanceDoc(asset.owner, assetId, symbol, 'carbon')
+        const pbd = constructPotentialBalanceDoc(asset.owner, assetId, symbol, 1, 'carbon')
         await db.updateAsync(db.potentialBalances)({ key: pbd.key }, pbd, { upsert: true })
     },
 
@@ -214,7 +214,7 @@ const eco2EventHandlers = {
         console.log('carbonAssets:Transferred', assetId, from, to, amount, timestamp)
         const asset = await db.findOneAsync(db.carbonAssets)({ assetId })
         const symbol = `${asset.symbol}.${asset.vintage}`
-        const pbd = constructPotentialBalanceDoc(to, assetId, symbol, 'carbon')
+        const pbd = constructPotentialBalanceDoc(to, assetId, symbol, 1, 'carbon')
         await db.updateAsync(db.potentialBalances)({ key: pbd.key }, pbd, { upsert: true })
     },
 
@@ -277,12 +277,13 @@ const eco2EventHandlers = {
         const symbol = Buffer.from(data[1]).toString('utf8')
         const owner = data[2].toString()
         // const firstSupply = data[3].toString()
-        const timestamp = data[4].toNumber()
+        const decimals = data[4].toNumber()
+        const timestamp = data[5].toNumber()
         const doc = { assetId, symbol, owner, timestamp }
         console.log('standardAssets:NewAsset', doc)
         await db.insertAsync(db.standardAssets)(doc)
 
-        const pbd = constructPotentialBalanceDoc(owner, assetId, symbol, 'standard')
+        const pbd = constructPotentialBalanceDoc(owner, assetId, symbol, decimals, 'standard')
         await db.updateAsync(db.potentialBalances)({ key: pbd.key }, pbd, { upsert: true })
     },
 
@@ -291,7 +292,7 @@ const eco2EventHandlers = {
         const to = data[2].toString()
         console.log('standardAssets:Transferred', assetId, to)
         const asset = await db.findOneAsync(db.standardAssets)({ assetId })
-        const pbd = constructPotentialBalanceDoc(to, assetId, asset.symbol, 'standard')
+        const pbd = constructPotentialBalanceDoc(to, assetId, asset.symbol, asset.decimals, 'standard')
         await db.updateAsync(db.potentialBalances)({ key: pbd.key }, pbd, { upsert: true })
     },
 
