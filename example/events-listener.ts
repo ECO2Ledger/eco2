@@ -279,7 +279,7 @@ const eco2EventHandlers = {
         // const firstSupply = data[3].toString()
         const decimals = data[4].toNumber()
         const timestamp = data[5].toNumber()
-        const doc = { assetId, symbol, owner, timestamp }
+        const doc = { assetId, symbol, owner, timestamp, decimals }
         console.log('standardAssets:NewAsset', doc)
         await db.insertAsync(db.standardAssets)(doc)
 
