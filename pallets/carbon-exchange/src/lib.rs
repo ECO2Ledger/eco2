@@ -120,7 +120,7 @@ decl_module! {
 
 				<pallet_carbon_assets::Module<T>>::make_transfer(&asset_id, &maker, &pot_account, amount)?;
 			} else if direction == Direction::BID as u8 {
-				locked_balance = amount / price;
+				locked_balance = amount.saturating_mul(price);
 				<pallet_balances::Module<T>>::transfer(
 					origin,
 					<T::Lookup as StaticLookup>::unlookup(pot_account),
@@ -162,7 +162,7 @@ decl_module! {
 			let direction = order.direction;
 			let maker = order.maker.clone();
 
-			let money_amount = amount / price;
+			let money_amount = amount.saturating_mul(price);
 			let pot_account = Self::pot_account_id();
 			if direction == Direction::ASK as u8 {
 				let pot_asset_balance = <pallet_carbon_assets::Module<T>>::balance(&asset_id, &pot_account);
