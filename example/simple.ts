@@ -216,7 +216,7 @@ async function main() {
         },
         CarbonAsset: {
             project_id: 'Hash',
-            symbol: 'Vec<u8>',
+            vintage: 'Vec<u8>',
             initial_supply: 'u64',
             total_supply: 'u64',
             status: 'u8',
