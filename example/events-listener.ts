@@ -258,6 +258,17 @@ const eco2EventHandlers = {
         const takerDealDoc = { orderId, owner: taker, price, amount, timestamp, direction: 1 - direction, assetId, moneyId, assetSymbol, moneySymbol, pair }
         await db.insertAsync(db.userDeals)(makerDealDoc)
         await db.insertAsync(db.userDeals)(takerDealDoc)
+
+        let carbonAccount
+        if (direction == 0) {
+            // ASK order, taker balance will be updated
+            carbonAccount = taker
+        } else {
+            // BID order, maker balance will be updated
+           carbonAccount = maker
+        }
+        const pbd = constructPotentialBalanceDoc(carbonAccount, assetId, assetSymbol, 0, 'carbon')
+        await db.updateAsync(db.potentialBalances)({ key: pbd.key }, pbd, { upsert: true })
     },
 
     'carbonExchange:OrderCanceled': async (_, data) => {

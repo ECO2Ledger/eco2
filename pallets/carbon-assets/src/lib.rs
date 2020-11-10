@@ -292,6 +292,7 @@ decl_module! {
 				additional,
 			};
 			<Burns<T>>::insert(burn_id, burn_info);
+			<Balances<T>>::mutate((asset_id, sender.clone()), |balance| *balance -= amount);
 
 			let now = <pallet_timestamp::Module<T>>::get();
 			Self::deposit_event(RawEvent::BurnSubmited(burn_id, asset_id, sender, amount, now));
@@ -311,7 +312,7 @@ decl_module! {
 
 			let project_id = asset.project_id;
 			let mut project = Self::get_project(project_id).ok_or(Error::<T>::InvalidIndex)?;
-			let owner = project.owner.clone();
+			// let owner = project.owner.clone();
 
 			burn_info.status = 1;
 			project.total_supply -= burn_info.amount;
@@ -320,7 +321,6 @@ decl_module! {
 			<Assets<T>>::insert(asset_id, &asset);
 			<Projects<T>>::insert(project_id, &project);
 			<Burns<T>>::insert(burn_id, &burn_info);
-			<Balances<T>>::mutate((asset_id, owner), |balance| *balance -= burn_info.amount);
 
 			Self::deposit_event(RawEvent::IssueApproved(burn_id));
 
