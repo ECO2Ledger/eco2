@@ -223,13 +223,14 @@ const eco2EventHandlers = {
         const owner = data[1].toString()
         const assetId = data[2].toString()
         const moneyId = data[3].toString()
-        const timestamp = data[4].toNumber()
+        const direction = data[4].toString()
+        const timestamp = data[5].toNumber()
 
         const asset = await db.findOneAsync(db.carbonAssets)({ assetId })
         const assetSymbol = `${asset.symbol}.${asset.vintage}`
         const moneySymbol = 'ECO2'
         const pair = `${assetSymbol}/${moneySymbol}`
-        const doc = { orderId, owner, closed: 0, timestamp, assetId, moneyId, assetSymbol, moneySymbol, pair }
+        const doc = { orderId, owner, closed: 0, direction, timestamp, assetId, moneyId, assetSymbol, moneySymbol, pair }
 
         console.log('NewOrder', doc)
         await db.insertAsync(db.orders)(doc)
@@ -526,12 +527,15 @@ function startServer() {
     })
 
     fastify.get('/carbon_orders', (request, reply) => {
-        let filter: { owner?: string, closed?: number } = {}
+        let filter: { owner?: string, closed?: number, direction?: number } = {}
         if (request.query.owner) {
             filter.owner = request.query.owner
         }
         if (request.query.closed) {
             filter.closed = parseIntOr(request.query.closed, 0)
+        }
+        if (request.query.direction) {
+            filter.direction = parseIntOr(request.query.direction, 0)
         }
         findWithComplexCondition(db.orders, request, filter, (err, result) => {
             err ? fail(reply, err) : ok(reply, result)
@@ -617,6 +621,7 @@ async function initDB() {
     await ensureIndexAsync(db.orders, { fieldName: 'orderId', unique: true })
     await ensureIndexAsync(db.orders, { fieldName: 'owner' })
     await ensureIndexAsync(db.orders, { fieldName: 'closed' })
+    await ensureIndexAsync(db.orders, { fieldName: 'direction' })
     await ensureIndexAsync(db.orders, { fieldName: 'timestamp' })
 
     await loadDatabaseAsync(db.deals)
