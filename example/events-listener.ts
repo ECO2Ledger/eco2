@@ -223,7 +223,7 @@ const eco2EventHandlers = {
         const owner = data[1].toString()
         const assetId = data[2].toString()
         const moneyId = data[3].toString()
-        const direction = data[4].toString()
+        const direction = data[4].toNumber()
         const timestamp = data[5].toNumber()
 
         const asset = await db.findOneAsync(db.carbonAssets)({ assetId })
