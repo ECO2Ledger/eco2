@@ -62,70 +62,59 @@ function constructPotentialBalanceDoc(account: string, assetId: string, symbol: 
 }
 
 const eco2EventHandlers = {
-    'carbonAssets:ProjectSubmited': async (_, data) => {
+    'carbonAssets:ProjectSubmited': async (_, data, height) => {
         const projectId = data[0].toString()
         const owner = data[1].toString()
         const symbol = Buffer.from(data[2]).toString('utf8')
         const timestamp = data[3].toNumber()
-        const doc = { projectId, owner, symbol, approved: 0, timestamp }
+        const doc = { projectId, owner, symbol, approved: 0, timestamp, height }
         console.log('ProjectSubmited', doc)
         await db.insertAsync(db.carbonProjects)(doc)
 
-        const result = await gApi.query['carbonAssets']['projects'](projectId)
-        if (!result.isEmpty) {
-            const project = result.toJSON()
-            console.log('project:', project)
-            if (project['status'] === 1) {
-                console.log('\tSkip the already approved proposal')
-                return
-            }
-            console.log('\tAdd new project proposal doc')
-            await db.insertAsync(db.carbonProposals)({
-                title: `Proposal for new project(${symbol})`,
-                type: 'project',
-                proposalId: '',
-                proposalIndex: -1,
-                key: projectId,
-                timestamp,
-            })
-        }
+        await db.insertAsync(db.carbonProposals)({
+            title: `Proposal for new project(${symbol})`,
+            type: 'project',
+            proposalId: '',
+            proposalIndex: -1,
+            key: projectId,
+            height,
+            ayes: 0,
+            nays:0,
+            state: 0,
+            timestamp,
+        })
     },
 
     'carbonAssets:ProjectApproved': async (_, data) => {
         const projectId = data[0].toString()
         console.log('ProjectApproved', projectId)
         await db.updateAsync(db.carbonProjects)({ projectId }, { $set: { approved: 1 } }, {})
+        await db.updateAsync(db.carbonProposals)({ key: projectId }, { $set: { state: 2, approved: 1 } }, {})
     },
 
-    'carbonAssets:AssetSubmited': async (_, data) => {
+    'carbonAssets:AssetSubmited': async (_, data, height) => {
         const projectId = data[0].toString()
         const assetId = data[1].toString()
         const symbol = Buffer.from(data[2]).toString('utf8')
         const vintage = Buffer.from(data[3]).toString('utf8')
         const owner = data[4].toString()
         const timestamp = data[5].toNumber()
-        const doc = { projectId, assetId, owner, approved: 0, timestamp, symbol, vintage }
+        const doc = { projectId, assetId, owner, approved: 0, timestamp, symbol, vintage, height }
         console.log('AssetSubmited', doc)
         await db.insertAsync(db.carbonAssets)(doc)
 
-        const result = await gApi.query['carbonAssets']['assets'](assetId)
-        if (!result.isEmpty) {
-            const asset = result.toJSON()
-            console.log('\tThe asset is', asset)
-            if (asset['status'] === 1) {
-                console.log('\tSkip the already approved proposal')
-                return
-            }
-            console.log('\tAdd new asset proposal doc')
-            await db.insertAsync(db.carbonProposals)({
-                title: `Proposal for new asset(${symbol}.${vintage})`,
-                type: 'asset',
-                proposalId: '',
-                proposalIndex: -1,
-                key: assetId,
-                timestamp,
-            })
-        }
+        await db.insertAsync(db.carbonProposals)({
+            title: `Proposal for new asset(${symbol}.${vintage})`,
+            type: 'asset',
+            proposalId: '',
+            proposalIndex: -1,
+            key: assetId,
+            height,
+            ayes: 0,
+            nays:0,
+            state: 0,
+            timestamp,
+        })
     },
 
     'carbonAssets:AssetApproved': async (_, data) => {
@@ -136,9 +125,10 @@ const eco2EventHandlers = {
         const symbol = `${asset.symbol}.${asset.vintage}`
         const pbd = constructPotentialBalanceDoc(asset.owner, assetId, symbol, 0, 'carbon')
         await db.updateAsync(db.potentialBalances)({ key: pbd.key }, pbd, { upsert: true })
+        await db.updateAsync(db.carbonProposals)({ key: assetId }, { $set: { state: 2, approved: 1 } }, {})
     },
 
-    'carbonAssets:IssueSubmited': async (_, data) => {
+    'carbonAssets:IssueSubmited': async (_, data, height) => {
         const issueId = data[0].toString()
         const assetId = data[1].toString()
         const owner = data[2].toString()
@@ -146,33 +136,27 @@ const eco2EventHandlers = {
         const timestamp = data[4].toNumber()
         console.log('carbonAssets:IssueSubmited', issueId, assetId, owner, amount, timestamp)
         const asset = await db.findOneAsync(db.carbonAssets)({ assetId })
-
-        const result = await gApi.query['carbonAssets']['issues'](issueId)
-        if (!result.isEmpty) {
-            const issue = result.toJSON()
-            if (issue['status'] === 1) {
-                console.log('\tSkip the already approved proposal')
-                return
-            }
-            console.log('\tAdd new issue proposal doc')
-            await db.insertAsync(db.carbonProposals)({
-                title: `Proposal for new issuing asset(${asset.symbol}.${asset.vintage})`,
-                type: 'issue',
-                proposalId: '',
-                proposalIndex: -1,
-                key: issueId,
-                timestamp,
-            })
-        }
+        await db.insertAsync(db.carbonProposals)({
+            title: `Proposal for new issuing asset(${asset.symbol}.${asset.vintage})`,
+            type: 'issue',
+            proposalId: '',
+            proposalIndex: -1,
+            key: issueId,
+            height,
+            ayes: 0,
+            nays:0,
+            state: 0,
+            timestamp,
+        })
     },
 
-    // 'carbonAssets:IssueApproved': async (_, data) => {
-    //     const issueId = data[0].toString()
-    //     console.log('IssueApproved', issueId)
-    //     db.carbonIssues.update({ issueId }, { $set: { approved: 1 } }, {}, dbErrorHandler)
-    // },
+    'carbonAssets:IssueApproved': async (_, data) => {
+        const issueId = data[0].toString()
+        console.log('IssueApproved', issueId)
+        await db.updateAsync(db.carbonProposals)({ key: issueId }, { $set: { state: 2, approved: 1 } }, {})
+    },
 
-    'carbonAssets:BurnSubmited': async (_, data) => {
+    'carbonAssets:BurnSubmited': async (_, data, height) => {
         const burnId = data[0].toString()
         const assetId = data[1].toString()
         const owner = data[2].toString()
@@ -180,30 +164,25 @@ const eco2EventHandlers = {
         const timestamp = data[4].toNumber()
         console.log('BurnSubmited', burnId, assetId, owner, amount, timestamp)
         const asset = await db.findOneAsync(db.carbonAssets)({ assetId })
-        const result = await gApi.query['carbonAssets']['burns'](burnId)
-        if (!result.isEmpty) {
-            const burn = result.toJSON()
-            if (burn['status'] === 1) {
-                console.log('\tSkip the already approved proposal')
-                return
-            }
-            console.log('\tAdd new burn proposal doc')
-            await db.insertAsync(db.carbonProposals)({
-                title: `Proposal for burning asset(${asset.symbol}.${asset.vintage})`,
-                type: 'burn',
-                proposalId: '',
-                proposalIndex: -1,
-                key: burnId,
-                timestamp,
-            })
-        }
+        await db.insertAsync(db.carbonProposals)({
+            title: `Proposal for burning asset(${asset.symbol}.${asset.vintage})`,
+            type: 'burn',
+            proposalId: '',
+            proposalIndex: -1,
+            key: burnId,
+            height,
+            ayes: 1,
+            nays:0,
+            state: 0,
+            timestamp,
+        })
     },
 
-    // 'carbonAssets:BurnApproved': async (_, data) => {
-    //     const burnId = data[0].toString()
-    //     console.log('BurnApproved', burnId)
-    //     db.carbonIssues.update({ burnId }, { $set: { approved: 1 } }, {}, dbErrorHandler)
-    // },
+    'carbonAssets:BurnApproved': async (_, data) => {
+        const burnId = data[0].toString()
+        console.log('BurnApproved', burnId)
+        await db.updateAsync(db.carbonProposals)({ key: burnId }, { $set: { state: 2, approved: 1 } }, {})
+    },
 
     'carbonAssets:Transferred': async (_, data) => {
         const assetId = data[0].toString()
@@ -218,7 +197,7 @@ const eco2EventHandlers = {
         await db.updateAsync(db.potentialBalances)({ key: pbd.key }, pbd, { upsert: true })
     },
 
-    'carbonExchange:NewOrder': async (_, data) => {
+    'carbonExchange:NewOrder': async (_, data, height) => {
         const orderId = data[0].toString()
         const owner = data[1].toString()
         const assetId = data[2].toString()
@@ -230,13 +209,13 @@ const eco2EventHandlers = {
         const assetSymbol = `${asset.symbol}.${asset.vintage}`
         const moneySymbol = 'ECO2'
         const pair = `${assetSymbol}/${moneySymbol}`
-        const doc = { orderId, owner, closed: 0, direction, timestamp, assetId, moneyId, assetSymbol, moneySymbol, pair }
+        const doc = { orderId, owner, closed: 0, direction, timestamp, assetId, moneyId, assetSymbol, moneySymbol, pair, height }
 
         console.log('NewOrder', doc)
         await db.insertAsync(db.orders)(doc)
     },
 
-    'carbonExchange:NewDeal': async (_, data) => {
+    'carbonExchange:NewDeal': async (_, data, height) => {
         const orderId = data[0].toString()
         const assetId = data[1].toString()
         const moneyId = data[2].toString()
@@ -251,12 +230,12 @@ const eco2EventHandlers = {
         const assetSymbol = `${asset.symbol}.${asset.vintage}`
         const moneySymbol = 'ECO2'
         const pair = `${assetSymbol}/${moneySymbol}`
-        const doc = { orderId, maker, taker, price, amount, timestamp, direction: 1 - direction, assetId, moneyId, assetSymbol, moneySymbol, pair }
+        const doc = { orderId, maker, taker, price, amount, timestamp, direction: 1 - direction, assetId, moneyId, assetSymbol, moneySymbol, pair, height }
         console.log('NewDeal', doc)
         await db.insertAsync(db.deals)(doc)
 
-        const makerDealDoc = { orderId, owner: maker, price, amount, timestamp, direction, assetId, moneyId, assetSymbol, moneySymbol, pair }
-        const takerDealDoc = { orderId, owner: taker, price, amount, timestamp, direction: 1 - direction, assetId, moneyId, assetSymbol, moneySymbol, pair }
+        const makerDealDoc = { orderId, owner: maker, price, amount, timestamp, direction, assetId, moneyId, assetSymbol, moneySymbol, pair, height }
+        const takerDealDoc = { orderId, owner: taker, price, amount, timestamp, direction: 1 - direction, assetId, moneyId, assetSymbol, moneySymbol, pair, height }
         await db.insertAsync(db.userDeals)(makerDealDoc)
         await db.insertAsync(db.userDeals)(takerDealDoc)
 
@@ -284,14 +263,14 @@ const eco2EventHandlers = {
         await db.updateAsync(db.orders)({ orderId }, { $set: { closed: 1 } }, {})
     },
 
-    'standardAssets:NewAsset': async (_, data) => {
+    'standardAssets:NewAsset': async (_, data, height) => {
         const assetId = data[0].toString()
         const symbol = Buffer.from(data[1]).toString('utf8')
         const owner = data[2].toString()
         // const firstSupply = data[3].toString()
         const decimals = data[4].toNumber()
         const timestamp = data[5].toNumber()
-        const doc = { assetId, symbol, owner, timestamp, decimals }
+        const doc = { assetId, symbol, owner, timestamp, decimals, height }
         console.log('standardAssets:NewAsset', doc)
         await db.insertAsync(db.standardAssets)(doc)
 
@@ -311,6 +290,7 @@ const eco2EventHandlers = {
     'carbonCommittee:Proposed': async (_, data) => {
         const proposalIndex = data[1].toNumber()
         const proposalId = data[2].toString()
+        const threshold = data[3].toNumber()
         console.log('carbonCommittee:Proposed', proposalIndex, proposalId)
 
         const result = await gApi.query['carbonCommittee']['proposalOf'](proposalId)
@@ -337,12 +317,29 @@ const eco2EventHandlers = {
                 console.log('\tUnexpected callIndex')
         }
         console.log(`\tUpdate proposal at ${key}: $set proposalId: ${proposalId}`)
-        await db.updateAsync(db.carbonProposals)({ key }, { $set: { proposalId, proposalIndex } }, {})
+        await db.updateAsync(db.carbonProposals)({ key }, { $set: { proposalId, proposalIndex, state: 1, ayes: 1, threshold } }, {})
+    },
+    'carbonCommittee:Voted': async (_, data) => {
+        const proposalId = data[1].toString()
+        const ayes = data[3].toNumber()
+        const nays = data[4].toNumber()
+        console.log('carbonCommittee:Voted', proposalId, ayes, nays)
+        await db.updateAsync(db.carbonProposals)({ proposalId }, { $set: { ayes, nays } }, {})
+    },
+    'carbonCommittee:Approved': async (_, data) => {
+        const proposalId = data[0].toString()
+        console.log('carbonCommittee:Approved', proposalId)
+        await db.updateAsync(db.carbonProposals)({ proposalId }, { $set: { approved: 1 } }, {})
+    },
+    'carbonCommittee:Disapproved': async (_, data) => {
+        const proposalId = data[0].toString()
+        console.log('carbonCommittee:Disapproved', proposalId)
+        await db.updateAsync(db.carbonProposals)({ proposalId }, { $set: { approved: 0 } }, {})
     },
     'carbonCommittee:Closed': async (_, data) => {
         const proposalId = data[0].toString()
         console.log('carbonCommittee:Closed', proposalId)
-        await db.removeAsync(db.carbonProposals)({ proposalId }, {})
+        await db.updateAsync(db.carbonProposals)({ proposalId }, { $set: { state: 2 } }, {})
     },
 }
 
@@ -362,14 +359,14 @@ const eco2EventHandlers = {
 //     }
 // }
 
-async function processEventsAtBlockHash(api, hash: string) {
+async function processEventsAtBlockHash(api, hash: string, n: number) {
     const events = await api.query.system.events.at(hash)
     for (let record of events) {
         const eventFullPath = `${record.event.section}:${record.event.method}`
         const handler = eco2EventHandlers[eventFullPath]
         if (handler) {
             try {
-                await handler(record, record.event.data)
+                await handler(record, record.event.data, n)
             } catch (e) {
                 console.log(e)
             }
@@ -379,7 +376,7 @@ async function processEventsAtBlockHash(api, hash: string) {
 
 async function processEventsAtBlockNumber(api, n: number) {
     const hash = await api.rpc.chain.getBlockHash(n)
-    await processEventsAtBlockHash(api, hash)
+    await processEventsAtBlockHash(api, hash, n)
 }
 
 async function processEventsInRange(api: ApiPromise, from: number, to: number) {
@@ -453,6 +450,13 @@ function startServer() {
         }
     }
 
+    async function statProposals() {
+        const pending = await db.countAsync(db.carbonProposals)({state: 0})
+        const voting = await db.countAsync(db.carbonProposals)({state: 1})
+        const closed = await db.countAsync(db.carbonProposals)({state: 2})
+        return { pending, voting, closed }
+    }
+
     function findWithComplexCondition(collection, request, filter, cb) {
         const { offset, limit } = getPaginationParams(request)
         const reverse = parseIntOr(request.query.reverse, 0)
@@ -521,8 +525,16 @@ function startServer() {
     // })
 
     fastify.get('/carbon_proposals', (request, reply) => {
-        findWithComplexCondition(db.carbonProposals, request, {}, (err, result) => {
-            err ? fail(reply, err) : ok(reply, result)
+        let filter: { state?: number } = {}
+        if (request.query.state) {
+            filter.state = parseIntOr(request.query.state, 0)
+        }
+        statProposals().then(counts => {
+            findWithComplexCondition(db.carbonProposals, request, filter, (err, result) => {
+                err ? fail(reply, err) : ok(reply, Object.assign({}, result, counts))
+            })
+        }).catch(err => {
+            fail(reply, err)
         })
     })
 
@@ -614,6 +626,7 @@ async function initDB() {
     // await ensureIndexAsync(db.carbonBurns, { fieldName: 'timestamp' })
 
     await loadDatabaseAsync(db.carbonProposals)
+    await ensureIndexAsync(db.carbonProposals, { fieldName: 'key', unique: true })
     await ensureIndexAsync(db.carbonProposals, { fieldName: 'proposalId' })
     await ensureIndexAsync(db.carbonProposals, { fieldName: 'timestamp' })
 
