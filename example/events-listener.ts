@@ -454,7 +454,8 @@ function startServer() {
         const pending = await db.countAsync(db.carbonProposals)({state: 0})
         const voting = await db.countAsync(db.carbonProposals)({state: 1})
         const closed = await db.countAsync(db.carbonProposals)({state: 2})
-        return { pending, voting, closed }
+        const total = await db.countAsync(db.carbonProposals)({})
+        return { pending, voting, closed, total }
     }
 
     function findWithComplexCondition(collection, request, filter, cb) {
