@@ -123,6 +123,16 @@ async function queryAsset(api: ApiPromise, assetId: string) {
     console.log('queryAssett:', asset.toJSON(), JSON.parse(toUtf8(additionals.toU8a(true))))
 }
 
+async function queryIssue(api: ApiPromise, issueId: string) {
+    const issue = await api.query['carbonAssets']['issues'](issueId)
+    console.log('queryIssue:', issue.toJSON())
+}
+
+async function queryBurn(api: ApiPromise, burnId: string) {
+    const burn = await api.query['carbonAssets']['burns'](burnId)
+    console.log('queryBurn:', burn.toJSON())
+}
+
 async function submitIssue(api: ApiPromise, sender: KeyringPair, assetId: string, amount: string, additional: {}) {
     const tx = api.tx['carbonAssets']['submitIssue'](assetId, amount, JSON.stringify(additional))
     await submitTx('submitIssue', tx, sender)
