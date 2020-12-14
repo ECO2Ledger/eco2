@@ -234,8 +234,8 @@ const eco2EventHandlers = {
         console.log('NewDeal', doc)
         await db.insertAsync(db.deals)(doc)
 
-        const makerDealDoc = { orderId, owner: maker, price, amount, timestamp, direction, assetId, moneyId, assetSymbol, moneySymbol, pair, height }
-        const takerDealDoc = { orderId, owner: taker, price, amount, timestamp, direction: 1 - direction, assetId, moneyId, assetSymbol, moneySymbol, pair, height }
+        const makerDealDoc = { orderId, owner: maker, counterparty: taker, price, amount, timestamp, direction, assetId, moneyId, assetSymbol, moneySymbol, pair, height }
+        const takerDealDoc = { orderId, owner: taker, counterparty: maker, price, amount, timestamp, direction: 1 - direction, assetId, moneyId, assetSymbol, moneySymbol, pair, height }
         await db.insertAsync(db.userDeals)(makerDealDoc)
         await db.insertAsync(db.userDeals)(takerDealDoc)
 
