@@ -28,7 +28,6 @@ cmd="./target/release/eco2 \
   --ws-port $WS_PORT \
   --rpc-port $RPC_PORT \
   --validator \
-  --rpc-methods Unsafe \
   --name 'Node$NODE_NUM'
   $@"
   
