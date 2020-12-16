@@ -1,6 +1,6 @@
 use eco2_runtime::{
-	AccountId, AuraConfig, BalancesConfig, CarbonMembershipConfig, GenesisConfig, GrandpaConfig,
-	Signature, SudoConfig, SystemConfig, WASM_BINARY,
+	AccountId, AuraConfig, Balance, BalancesConfig, CarbonMembershipConfig, GenesisConfig,
+	GrandpaConfig, Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -10,6 +10,7 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
+const COIN: Balance = 100_000_000; 
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
@@ -54,18 +55,11 @@ pub fn development_config() -> Result<ChainSpec, String> {
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Pre-funded accounts
 				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie"),
-					get_account_id_from_seed::<sr25519::Public>("Dave"),
-					get_account_id_from_seed::<sr25519::Public>("Eve"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+					(get_account_id_from_seed::<sr25519::Public>("Alice"), 999997000 * COIN),
+					(get_account_id_from_seed::<sr25519::Public>("Bob"), 1000 * COIN),
+					(get_account_id_from_seed::<sr25519::Public>("Charlie"), 1000 * COIN),
+					(get_account_id_from_seed::<sr25519::Public>("Dave"), 1000 * COIN),
 				],
-				true,
 			)
 		},
 		// Bootnodes
@@ -83,10 +77,14 @@ pub fn development_config() -> Result<ChainSpec, String> {
 
 pub fn local_testnet_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or("Development wasm binary not available".to_string())?;
+	// let mut properties = serde_json::map::Map::new();
+	// properties.insert("ss58Format".to_owned(), serde_json::json!(135));
+	// properties.insert("tokenDecimals".to_owned(), serde_json::json!(8));
+	// properties.insert("tokenSymbol".to_owned(), serde_json::json!("ECO2"));
 
 	Ok(ChainSpec::from_genesis(
 		// Name
-		"Local Testnet",
+		"ECO2 Local Testnet",
 		// ID
 		"local_testnet",
 		ChainType::Local,
@@ -94,26 +92,16 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 			testnet_genesis(
 				wasm_binary,
 				// Initial PoA authorities
-				vec![
-					authority_keys_from_seed("Alice"),
-					authority_keys_from_seed("Bob"),
-				],
+				vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
 				// Sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Pre-funded accounts
 				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie"),
-					get_account_id_from_seed::<sr25519::Public>("Dave"),
-					get_account_id_from_seed::<sr25519::Public>("Eve"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+					(get_account_id_from_seed::<sr25519::Public>("Alice"), 999997000 * COIN),
+					(get_account_id_from_seed::<sr25519::Public>("Bob"), 1000 * COIN),
+					(get_account_id_from_seed::<sr25519::Public>("Charlie"), 1000 * COIN),
+					(get_account_id_from_seed::<sr25519::Public>("Dave"), 1000 * COIN),
 				],
-				true,
 			)
 		},
 		// Bootnodes
@@ -123,6 +111,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 		// Protocol ID
 		None,
 		// Properties
+		// Some(properties),
 		None,
 		// Extensions
 		None,
@@ -134,8 +123,7 @@ fn testnet_genesis(
 	wasm_binary: &[u8],
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
 	root_key: AccountId,
-	endowed_accounts: Vec<AccountId>,
-	_enable_println: bool,
+	endowed_accounts: Vec<(AccountId, Balance)>,
 ) -> GenesisConfig {
 	GenesisConfig {
 		frame_system: Some(SystemConfig {
@@ -147,7 +135,7 @@ fn testnet_genesis(
 			balances: endowed_accounts
 				.iter()
 				.cloned()
-				.map(|k| (k, 1000000000000000))
+				.map(|k| (k.0.clone(), k.1))
 				.collect(),
 		}),
 		pallet_aura: Some(AuraConfig {
@@ -165,7 +153,7 @@ fn testnet_genesis(
 		}),
 		pallet_collective_Instance1: Some(Default::default()),
 		pallet_membership_Instance1: Some(CarbonMembershipConfig {
-			members: endowed_accounts[1..4].to_vec(),
+			members: endowed_accounts[1..4].iter().map(|x| x.0.clone()).collect(),
 			phantom: Default::default(),
 		}),
 		pallet_collective_Instance2: Some(Default::default()),

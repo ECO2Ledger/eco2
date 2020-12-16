@@ -1,7 +1,7 @@
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api'
 import { TypeRegistry, createTypeUnsafe } from '@polkadot/types'
 import { KeyringPair } from '@polkadot/keyring/types'
-import { cryptoWaitReady } from '@polkadot/util-crypto'
+import { cryptoWaitReady, mnemonicGenerate } from '@polkadot/util-crypto'
 
 const typeRegistry = new TypeRegistry()
 let gApi: ApiPromise
@@ -210,8 +210,40 @@ async function neutralize(api: ApiPromise, sender: KeyringPair, assetId: string,
     await submitTx('neutralize', tx, sender)
 }
 
-async function main() {
+function generateKeys(keyring: Keyring, n: number) {
+    for (let i = 0; i < n; i++) {
+        const mnemonic = mnemonicGenerate()
+        const ep = keyring.createFromUri(mnemonic, {}, 'ed25519')
+        const sp = keyring.createFromUri(mnemonic, {}, 'sr25519')
+        console.log('============================')
+        console.log(`Key ${i}`)
+        console.log('============================')
+        console.log('-----------------')
+        console.log('ed25519')
+        console.log('-----------------')
+        console.log('mnemonic:', mnemonic)
+        console.log('publicKey:', '0x' + Buffer.from(ep.publicKey).toString('hex'))
+        console.log('substrate address:', keyring.encodeAddress(ep.publicKey, 42))
+        console.log('eco2 address:', keyring.encodeAddress(ep.publicKey, 135))
+        console.log('-----------------')
+        console.log('sr25519')
+        console.log('-----------------')
+        console.log('mnemonic:', mnemonic)
+        console.log('publicKey:', '0x' + Buffer.from(sp.publicKey).toString('hex'))
+        console.log('substrate address:', keyring.encodeAddress(sp.publicKey, 42))
+        console.log('eco2 address:', keyring.encodeAddress(sp.publicKey, 135))
+        console.log('')
+    }
+}
+
+async function main(argv) {
+    const keyring = new Keyring({ type: 'sr25519' })
     await cryptoWaitReady()
+
+    if (argv[2] === 'generateKeys') {
+        generateKeys(keyring, Number(argv[3]))
+        return
+    }
 
     const wsProvider = new WsProvider('ws://127.0.0.1:9944')
     const types = {
@@ -265,7 +297,6 @@ async function main() {
     }
     const api = await ApiPromise.create({ provider: wsProvider, types })
     gApi = api
-    const keyring = new Keyring({ type: 'sr25519' })
     const alice = keyring.addFromUri('//Alice', { name: 'Alice default' })
     const jack = keyring.addFromUri('entire material egg meadow latin bargain dutch coral blood melt acoustic thought')
 
@@ -278,7 +309,7 @@ async function main() {
 
     // await queryCarbonCommitteeMembers(api)
 
-    await queryBalance(api, alice.address)
+    // await queryBalance(api, alice.address)
     // await transfer(api, alice, jack.address, '200000000000')
     // await transfer(api, alice, bob.address, '200000000000')
     // await transfer(api, alice, charlie.address, '200000000000')
@@ -339,4 +370,4 @@ async function main() {
     // await queryOrder(api, orderId)
 }
 
-main().then().catch(console.error)
+main(process.argv).then().catch(console.error)
