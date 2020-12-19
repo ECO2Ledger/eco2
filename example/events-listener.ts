@@ -171,7 +171,7 @@ const eco2EventHandlers = {
             proposalIndex: -1,
             key: burnId,
             height,
-            ayes: 1,
+            ayes: 0,
             nays:0,
             state: 0,
             timestamp,
