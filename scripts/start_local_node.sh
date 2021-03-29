@@ -27,9 +27,9 @@ cmd="./target/release/eco2 \
   --port $PORT \
   --ws-port $WS_PORT \
   --rpc-port $RPC_PORT \
-  --validator \
+  --ws-external --rpc-external --rpc-cors=all \
   --name 'Node$NODE_NUM'
-  $@"
+"
   
 echo $cmd
 nohup $cmd > $BASE_PATH/debug.log &

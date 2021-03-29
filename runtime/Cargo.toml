@@ -21,37 +21,58 @@ package = 'parity-scale-codec'
 version = '1.3.4'
 
 [dependencies]
+authority-discovery-primitives = {package = 'sp-authority-discovery', default-features = false, version = '2.0'}
 hex-literal = {optional = true, version = '0.3.1'}
 serde = {features = ['derive'], optional = true, version = '1.0.101'}
 
 # Substrate dependencies
-frame-benchmarking = {default-features = false, optional = true, version = '2.0.0'}
-frame-executive = {default-features = false, version = '2.0.0'}
-frame-support = {default-features = false, version = '2.0.0'}
-frame-system = {default-features = false, version = '2.0.0'}
-frame-system-benchmarking = {default-features = false, optional = true, version = '2.0.0'}
-frame-system-rpc-runtime-api = {default-features = false, version = '2.0.0'}
-pallet-aura = {default-features = false, version = '2.0.0'}
-pallet-balances = {default-features = false, version = '2.0.0'}
-pallet-collective = {default-features = false, version = '2.0.0'}
-pallet-grandpa = {default-features = false, version = '2.0.0'}
-pallet-membership = {default-features = false, version = '2.0.0'}
-pallet-randomness-collective-flip = {default-features = false, version = '2.0.0'}
-pallet-sudo = {default-features = false, version = '2.0.0'}
-pallet-timestamp = {default-features = false, version = '2.0.0'}
-pallet-transaction-payment = {default-features = false, version = '2.0.0'}
-pallet-transaction-payment-rpc-runtime-api = {default-features = false, version = '2.0.0'}
-sp-api = {default-features = false, version = '2.0.0'}
-sp-block-builder = {default-features = false, version = '2.0.0'}
+frame-benchmarking = {default-features = false, optional = true, version = '2.0'}
+frame-executive = {default-features = false, version = '2.0'}
+frame-support = {default-features = false, version = '2.0'}
+frame-system = {default-features = false, version = '2.0'}
+frame-system-benchmarking = {default-features = false, optional = true, version = '2.0'}
+frame-system-rpc-runtime-api = {default-features = false, version = '2.0'}
+pallet-aura = {default-features = false, version = '2.0'}
+pallet-authority-discovery = {default-features = false, version = '2.0'}
+pallet-authorship = {default-features = false, version = '2.0'}
+pallet-balances = {default-features = false, version = '2.0'}
+pallet-collective = {default-features = false, version = '2.0'}
+pallet-democracy = {default-features = false, version = '2.0'}
+pallet-elections-phragmen = {default-features = false, version = '2.0'}
+pallet-grandpa = {default-features = false, version = '2.0'}
+pallet-identity = {default-features = false, version = '2.0'}
+pallet-im-online = {default-features = false, version = '2.0'}
+pallet-indices = {default-features = false, version = '2.0'}
+pallet-membership = {default-features = false, version = '2.0'}
+pallet-multisig = {default-features = false, version = '2.0'}
+pallet-offences = {default-features = false, version = '2.0'}
+pallet-proxy = {default-features = false, version = '2.0'}
+pallet-randomness-collective-flip = {default-features = false, version = '2.0'}
+pallet-recovery = {default-features = false, version = '2.0'}
+pallet-scheduler = {default-features = false, version = '2.0'}
+pallet-session = {default-features = false, version = '2.0', features = ["historical"]}
+pallet-staking = {default-features = false, version = '2.0'}
+pallet-staking-reward-curve = {default-features = false, version = '2.0'}
+pallet-sudo = {default-features = false, version = '2.0'}
+pallet-timestamp = {default-features = false, version = '2.0'}
+pallet-transaction-payment = {default-features = false, version = '2.0'}
+pallet-transaction-payment-rpc-runtime-api = {default-features = false, version = '2.0'}
+pallet-treasury = {default-features = false, version = '2.0'}
+pallet-utility = {default-features = false, version = '2.0'}
+pallet-vesting = {default-features = false, version = '2.0'}
+parity-scale-codec = {version = "2.0", default-features = false, features = ["derive"]}
+sp-api = {default-features = false, version = '2.0'}
+sp-block-builder = {default-features = false, version = '2.0'}
 sp-consensus-aura = {default-features = false, version = '0.8.0'}
-sp-core = {default-features = false, version = '2.0.0'}
-sp-inherents = {default-features = false, version = '2.0.0'}
-sp-offchain = {default-features = false, version = '2.0.0'}
-sp-runtime = {default-features = false, version = '2.0.0'}
-sp-session = {default-features = false, version = '2.0.0'}
-sp-std = {default-features = false, version = '2.0.0'}
-sp-transaction-pool = {default-features = false, version = '2.0.0'}
-sp-version = {default-features = false, version = '2.0.0'}
+sp-core = {default-features = false, version = '2.0'}
+sp-inherents = {default-features = false, version = '2.0'}
+sp-offchain = {default-features = false, version = '2.0'}
+sp-runtime = {default-features = false, version = '2.0'}
+sp-session = {default-features = false, version = '2.0'}
+sp-staking = {default-features = false, version = '2.0'}
+sp-std = {default-features = false, version = '2.0'}
+sp-transaction-pool = {default-features = false, version = '2.0'}
+sp-version = {default-features = false, version = '2.0'}
 
 # ECO2 dependencies
 pallet-carbon-assets = {path = '../pallets/carbon-assets', default-features = false}
@@ -77,9 +98,18 @@ std = [
   'frame-support/std',
   'frame-system/std',
   'frame-system-rpc-runtime-api/std',
+  'pallet-authority-discovery/std',
+  'pallet-authorship/std',
   'pallet-aura/std',
   'pallet-balances/std',
+  'pallet-collective/std',
+  'pallet-democracy/std',
+  'pallet-elections-phragmen/std',
   'pallet-grandpa/std',
+  'pallet-identity/std',
+  'pallet-session/std',
+  'pallet-staking/std',
+  'pallet-treasury/std',
   'pallet-randomness-collective-flip/std',
   'pallet-sudo/std',
   'pallet-timestamp/std',
@@ -90,6 +120,16 @@ std = [
   'pallet-carbon-assets/std',
   'pallet-carbon-exchange/std',
   'pallet-standard-assets/std',
+  'pallet-vesting/std',
+  'pallet-proxy/std',
+  'pallet-indices/std',
+  'pallet-im-online/std',
+  'pallet-offences/std',
+  'pallet-utility/std',
+  'pallet-multisig/std',
+  'pallet-recovery/std',
+  'parity-scale-codec/std',
+  'authority-discovery-primitives/std',
   'sp-api/std',
   'sp-block-builder/std',
   'sp-consensus-aura/std',
@@ -101,4 +141,5 @@ std = [
   'sp-std/std',
   'sp-transaction-pool/std',
   'sp-version/std',
+  'sp-staking/std',
 ]
