@@ -6,7 +6,7 @@ homepage = 'https://substrate.dev'
 license = 'Unlicense'
 name = 'pallet-carbon-exchange'
 repository = 'https://github.com/ECO2Ledger/eco2'
-version = '2.0.0'
+version = '2.0.1'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -14,14 +14,14 @@ targets = ['x86_64-unknown-linux-gnu']
 [dependencies]
 codec = {package = 'parity-scale-codec', version = '1.3.4', default-features = false, features = ['derive']}
 
-frame-support = {version = '2.0.0', default-features = false}
-frame-system = {version = '2.0.0', default-features = false}
+frame-support = {version = '2.0.1', default-features = false}
+frame-system = {version = '2.0.1', default-features = false}
 
-sp-runtime = {version = '2.0.0', default-features = false}
-sp-std = {version = '2.0.0', default-features = false}
+sp-runtime = {version = '2.0.1', default-features = false}
+sp-std = {version = '2.0.1', default-features = false}
 
-pallet-balances = {version = '2.0.0', default-features = false}
-pallet-timestamp = {version = '2.0.0', default-features = false}
+pallet-balances = {version = '2.0.1', default-features = false}
+pallet-timestamp = {version = '2.0.1', default-features = false}
 
 pallet-carbon-assets = {path = '../carbon-assets', default-features = false}
 pallet-standard-assets = {path = '../standard-assets', default-features = false}
