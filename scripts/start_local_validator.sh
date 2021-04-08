@@ -27,8 +27,6 @@ cmd="./target/release/eco2 \
   --port $PORT \
   --ws-port $WS_PORT \
   --rpc-port $RPC_PORT \
-  --name Node$NODE_NUM \
-  --validator \
   $@
 "
   

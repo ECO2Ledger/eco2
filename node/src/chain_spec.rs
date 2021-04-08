@@ -120,7 +120,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Pre-funded accounts
 				vec![
-					(get_account_id_from_seed::<sr25519::Public>("Alice"), 999997000 * COIN),
+					(get_account_id_from_seed::<sr25519::Public>("Alice"), 999995000 * COIN),
 					(get_account_id_from_seed::<sr25519::Public>("Alice//stash"), 1000 * COIN),
 					(get_account_id_from_seed::<sr25519::Public>("Bob"), 1000 * COIN),
 					(get_account_id_from_seed::<sr25519::Public>("Bob//stash"), 1000 * COIN),

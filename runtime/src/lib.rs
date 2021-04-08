@@ -409,7 +409,7 @@ impl_opaque_keys! {
 }
 
 parameter_types! {
-	pub const Period: BlockNumber = 1 * HOURS;
+	pub const Period: BlockNumber = 20 * MINUTES;
 	pub const Offset: BlockNumber = 0;
 	pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
 }
@@ -445,11 +445,11 @@ pallet_staking_reward_curve::build! {
 
 parameter_types! {
 	// 1 hour session, 6 hour era
-	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
+	pub const SessionsPerEra: sp_staking::SessionIndex = 4;
 	// 2 * 28 eras * 6 hours/era = 14 day bonding duration
-	pub const BondingDuration: pallet_staking::EraIndex = 2 * 28;
+	pub const BondingDuration: pallet_staking::EraIndex = 2 * 4;
 	// 28 eras * 6 hours/era = 7 day slash duration
-	pub const SlashDeferDuration: pallet_staking::EraIndex = 28;
+	pub const SlashDeferDuration: pallet_staking::EraIndex = 4;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &CURVE;
 	pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 	pub const MaxNominatorRewardedPerValidator: u32 = 128;
