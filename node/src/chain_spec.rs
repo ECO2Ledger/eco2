@@ -14,7 +14,7 @@ use sp_runtime::Perbill;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
-const COIN: Balance = 100_000_000; 
+const COIN: Balance = 1_000_000_000_000; 
 const STASH: Balance = 1000 * COIN;
 const DEFAULT_PROTOCOL_ID: &str = "eco2";
 
@@ -100,7 +100,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 	let data = r#"
 	{
 		"ss58Format": 42,
-		"tokenDecimals": 8,
+		"tokenDecimals": 12,
 		"tokenSymbol": "ECO2"
 	}"#;
 	let properties = serde_json::from_str(data).unwrap();
