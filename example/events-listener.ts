@@ -301,16 +301,16 @@ const eco2EventHandlers = {
 
         let key: string
         switch (proposal['callIndex']) {
-            case '0x0b01':
+            case '0x1d01':
                 key = proposal['args']['project_id']
                 break;
-            case '0x0b03':
+            case '0x1d03':
                 key = proposal['args']['asset_id']
                 break;
-            case '0x0b05':
+            case '0x1d05':
                 key = proposal['args']['issue_id']
                 break;
-            case '0x0b07':
+            case '0x1d07':
                 key = proposal['args']['burn_id']
                 break;
             default:
